@@ -167,7 +167,9 @@ A Quantum of Trust, denoted q\<T\>, (pronounced 'cute'), is defined recursively 
 
 Formally:
 
-$$q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})$$
+```math
+q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})
+```
 
 When we speak of Avatars (the interface), we're speaking of Agents (the formal structure) from the network's perspective. The terms are two views of the same entity.
 
@@ -175,7 +177,9 @@ When we speak of Avatars (the interface), we're speaking of Agents (the formal s
 
 Trust value is computed by a function that maps to all real numbers—trust can be positive, zero, or negative:
 
-$$V_t: q\langle T \rangle \rightarrow \mathbb{R}$$
+```math
+V_t: q\langle T \rangle \rightarrow \mathbb{R}
+```
 
 This range is meaningful:
 - $V_t = 0$ → unknown, no track record
@@ -188,7 +192,9 @@ A newcomer with no history might get a chance. An agent with $V_t = -50$ has *ea
 
 For an Agent, value derives from contract history within a specific skill context:
 
-$$V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)$$
+```math
+V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)
+```
 
 Where:
 - $h_t$ is the set of contracts in the agent's history *for skill type $t$ specifically*
@@ -201,7 +207,9 @@ The skill type $t$ scopes everything. An agent maintains separate, independent t
 
 A contract is formally defined as a tuple:
 
-$$c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)$$
+```math
+c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)
+```
 
 Where:
 - $a_{\text{provider}}$ is the agent offering services
@@ -213,7 +221,9 @@ Where:
 
 Upon completion, the contract yields an outcome:
 
-$$\text{outcome}(c) \in [-1, 1]$$
+```math
+\text{outcome}(c) \in [-1, 1]
+```
 
 This continuous range allows for partial success or failure. Discrete outcomes $\{-1, 0, 1\}$ representing {failure, partial, success} are a simplified special case.
 
@@ -221,7 +231,9 @@ This continuous range allows for partial success or failure. Discrete outcomes $
 
 Not all contracts contribute equally. The weighting function ensures that signal quality varies:
 
-$$\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)$$
+```math
+\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)
+```
 
 The weight assigned to a contract depends on:
 - **Stake**: Higher-value contracts carry more signal
@@ -233,11 +245,15 @@ The weight assigned to a contract depends on:
 
 Higher trust unlocks better opportunities:
 
-$$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$$
+```math
+\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)
+```
 
 Where $\theta(c)$ is the minimum trust required to bid on contract $c$:
 
-$$\theta(c) = \log(1 + s(c)) \cdot d(c)$$
+```math
+\theta(c) = \log(1 + s(c)) \cdot d(c)
+```
 
 This ensures that:
 - Higher stakes raise the threshold (logarithmically, preventing runaway growth)
@@ -250,9 +266,13 @@ This creates a virtuous cycle: build trust through smaller contracts, gain acces
 
 History evolves with each contract execution:
 
-$$h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}$$
+```math
+h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}
+```
 
-$$V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)$$
+```math
+V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)
+```
 
 Trust accumulates over time. Every action either adds to or subtracts from your reputation. There is no coasting.
 
@@ -266,7 +286,9 @@ Trust as Lego blocks. The recursive structure of q\<T\> enables composability th
 
 For a DAO, value derives from its constituents:
 
-$$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
+```math
+V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)
+```
 
 Where $\Phi$ is an aggregation function chosen by the DAO's governance—sum, weighted average, minimum, or any other function appropriate to the organization's purpose.
 
@@ -294,7 +316,9 @@ This recursive structure enables:
 
 The structure also provides built-in resistance to Sybil attacks. Creating $k$ fake Avatars means splitting your activity across them. Each sybil accumulates less history than an honest Avatar operating for the same duration:
 
-$$|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i$$
+```math
+|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i
+```
 
 Less history means less trust. Less trust means eligibility for fewer and lower-quality contracts. The economics favor consolidation of reputation over fragmentation—you're better off building genuine trust through a single Avatar than spreading thin across multiple sybils.
 
@@ -428,7 +452,9 @@ Imagine a simulation environment populated entirely by AI-operated Avatars, each
 
 **Convergence Criterion**: The network validates when trust values reflect actual capability:
 
-$$\lim_{n \to \infty} \text{Corr}\big(V_t^{(n)}(a), R_t(a)\big) = 1$$
+```math
+\lim_{n \to \infty} \text{Corr}\big(V_t^{(n)}(a), R_t(a)\big) = 1
+```
 
 Where $R_t(a)$ is Avatar $a$'s *actual* reliability—known to us as simulators, invisible to the network. As history accumulates, the network discovers who's genuinely capable. When correlation approaches 1, the mathematics work.
 
