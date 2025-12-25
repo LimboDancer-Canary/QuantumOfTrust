@@ -234,7 +234,7 @@ This split maps directly onto q\<T\>'s disclosure model:
 
 DAO trust aggregation requires proving statements about member trust values without revealing them:
 
-$$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
+$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$
 
 Aztec supports recursive proof verification:
 

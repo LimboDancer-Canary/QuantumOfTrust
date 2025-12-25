@@ -34,13 +34,13 @@ The Avatar is the fundamental interface. Identity disclosure becomes optional in
 
 A Quantum of Trust is defined recursively:
 
-$$q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})$$
+$q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})$
 
 Where an **Agent** has a skill type and history, and a **DAO** contains a set of q\<T\> units.
 
 Trust value maps to all real numbers:
 
-$$V_t: q\langle T \rangle \rightarrow \mathbb{R}$$
+$V_t: q\langle T \rangle \rightarrow \mathbb{R}$
 
 - $V_t = 0$ → Unknown, no track record
 - $V_t > 0$ → Net positive history, trusted  
@@ -48,7 +48,7 @@ $$V_t: q\langle T \rangle \rightarrow \mathbb{R}$$
 
 The eligibility primitive—the core operation:
 
-$$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$$
+$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$
 
 An Avatar proves they meet a threshold *without revealing their history, counterparties, or exact trust score*.
 
@@ -98,7 +98,7 @@ Verifier cannot:  See history size, counterparties, stakes, outcomes
 
 DAOs are themselves q\<T\> units, enabling recursive composition:
 
-$$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
+$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$
 
 Where Φ is a configurable aggregation function (sum, average, minimum, maximum).
 
