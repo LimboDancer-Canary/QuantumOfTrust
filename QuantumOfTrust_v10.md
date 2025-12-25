@@ -2,6 +2,11 @@
 
 ## Trust Primitives for the Agent Economy
 
+#
+
+![DAO hexagon containing Management, Blockchain, Legal, Incubator, DAO, Capital agents](./QTImage01.png)
+
+#
 ---
 
 ## Preface
