@@ -263,22 +263,22 @@ Trust-based content curation:
 
 ## 10. Roadmap
 
-### Phase 1: Foundation (Q1 2024)
+### Phase 1: Foundation (Q1-Q2 2026)
 - Core cryptographic primitives
 - Basic trust token system
 - Reference implementation in Noir
 
-### Phase 2: Integration (Q2 2024)
+### Phase 2: Integration (Q3-Q4 2026)
 - API development
 - First blockchain deployment
 - SDK release
 
-### Phase 3: Expansion (Q3-Q4 2024)
+### Phase 3: Expansion (2027)
 - Multi-chain support
 - Advanced reputation metrics
 - Agent framework integration
 
-### Phase 4: Ecosystem (2025)
+### Phase 4: Ecosystem (2028+)
 - Developer tools
 - Third-party integrations
 - Standards development
@@ -326,6 +326,6 @@ Full API documentation available in implementation repository.
 ---
 
 **Version**: 1.0  
-**Date**: December 2023  
+**Date**: December 2025  
 **Status**: Draft for Review  
 **License**: MIT
