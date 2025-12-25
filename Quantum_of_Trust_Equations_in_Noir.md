@@ -792,9 +792,7 @@ fn approx_tanh_scaled(x: Signed) -> Signed {
 
 ### Mathematical Notation
 
-```math
-q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})
-```
+$q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})$
 
 ### Noir Implementation
 
@@ -1006,9 +1004,7 @@ struct DAOMembership {
 
 ### Mathematical Notation
 
-```math
-V_t: q\langle T \rangle \rightarrow \mathbb{R}
-```
+$V_t: q\langle T \rangle \rightarrow \mathbb{R}$
 
 Where:
 - $V_t = 0$ → unknown, no track record
@@ -1129,9 +1125,7 @@ fn prove_trust_range(
 
 ### Mathematical Notation
 
-```math
-V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)
-```
+$V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)$
 
 ### Noir Implementation
 
@@ -1237,9 +1231,7 @@ fn prove_minimum_history(
 
 ### Mathematical Notation
 
-```math
-V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)
-```
+$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$
 
 Where Φ is an aggregation function (sum, average, min, max).
 
@@ -1403,9 +1395,7 @@ fn prove_dao_trust_threshold(
 
 ### Mathematical Notation
 
-```math
-c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)
-```
+$c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)$
 
 ### Noir Implementation
 
@@ -1487,9 +1477,7 @@ fn validate_contract(contract: Contract) -> bool {
 
 ### Mathematical Notation
 
-```math
-\text{outcome}(c) \in [-1, 1]
-```
+$\text{outcome}(c) \in [-1, 1]$
 
 Continuous range allowing partial success/failure. Discrete {-1, 0, 1} as special case.
 
@@ -1570,9 +1558,7 @@ fn is_neutral(contract: Contract) -> bool {
 
 ### Mathematical Notation
 
-```math
-\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)
-```
+$\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)$
 
 ### Noir Implementation
 
@@ -1702,9 +1688,7 @@ fn verify_weight_bounds(contract: Contract) -> bool {
 
 ### Mathematical Notation
 
-```math
-h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}
-```
+$h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}$
 
 ### Noir Implementation
 
@@ -1801,9 +1785,7 @@ fn add_to_history(
 
 ### Mathematical Notation
 
-```math
-V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)
-```
+$V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)$
 
 ### Noir Implementation
 
@@ -1929,14 +1911,10 @@ fn batch_update_trust(
 
 ### Mathematical Notation
 
-```math
-\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)
-```
+$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$
 
 Where:
-```math
-\theta(c) = \log(1 + s(c)) \cdot d(c)
-```
+$\theta(c) = \log(1 + s(c)) \cdot d(c)$
 
 ### Noir Implementation
 
@@ -2063,9 +2041,7 @@ fn prove_eligibility_extended(
 
 ### Mathematical Notation
 
-```math
-\lim_{n \to \infty} \text{Corr}\big(V_t^{(n)}(a), R_t(a)\big) = 1
-```
+$\lim_{n \to \infty} \text{Corr}\big(V_t^{(n)}(a), R_t(a)\big) = 1$
 
 ### Noir Implementation
 
@@ -2147,9 +2123,7 @@ fn prove_population_statistics(
 
 ### Mathematical Notation
 
-```math
-|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i
-```
+$|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i$
 
 ### Noir Implementation
 
