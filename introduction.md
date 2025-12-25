@@ -191,7 +191,7 @@ Please open an issue to discuss proposed changes before submitting pull requests
 
 ## License
 
-[To be determined — suggest MIT or Apache 2.0 for maximum adoption]
+MIT
 
 ## Acknowledgments
 
