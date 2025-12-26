@@ -11,4 +11,4 @@ q\<T\> decouples trust from identity. Build reputation through verified action, 
 - [**Math Equations in Plain English**](./The_Quantum_of_Trust_Math_Equations_in_Plain_English.md)
 - [**Noir Implementation**](./Quantum_of_Trust_Equations_in_Noir.md)
 - [**Platform Selection**](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md)
-- [**C# Implementation**](./Quantum_of_Trust_Equations_in_CSharp.md)
+- [**C# Implementation**](./Quantum%20of%20Trust%20Equations%20in%20CSharp.md)
