@@ -57,8 +57,11 @@ An Avatar proves they meet a threshold *without revealing their history, counter
 | Document | Description |
 |----------|-------------|
 | [**QuantumOfTrust_v10.md**](./QuantumOfTrust_v10.md) | The complete framework whitepaper. Covers the problem, the Avatar-first architecture, mathematical formalization, composable trust, and the human-AI bridge. |
-| [**Quantum_of_Trust_Equations_in_Noir.md**](./Quantum_of_Trust_Equations_in_Noir.md) | Full implementation in Noir (Aztec's ZK circuit language). 3,000+ lines covering signed arithmetic, eligibility proofs, DAO aggregation, and Sybil resistance. |
-| [**Blockchain_Selection_for_Quantum_of_Trust_Implementation.md**](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md) | Technical rationale for choosing Noir on Aztec. Evaluates major blockchain platforms against q\<T\> requirements. |
+| [**The_Quantum_of_Trust_Math_Equations_in_Plain_English.md**](./The_Quantum_of_Trust_Math_Equations_in_Plain_English.md) | Every equation explained in plain English with examples. |
+| [**Quantum_of_Trust_Equations_in_Noir.md**](./Quantum_of_Trust_Equations_in_Noir.md) | Full implementation in Noir (Aztec's ZK circuit language). Covers signed arithmetic, eligibility proofs, DAO aggregation, and Sybil resistance. |
+| [**Quantum_of_Trust_Equations_in_CSharp.md**](./Quantum_of_Trust_Equations_in_CSharp.md) | C# implementation for traditional systems. |
+| [**Sybil_Resistance_Architecture.md**](./Sybil_Resistance_Architecture.md) | Detailed design rationale for defense-in-depth against Sybil attacks. |
+| [**Blockchain_Selection_for_Quantum_of_Trust_Implementation.md**](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md) | Technical rationale for choosing Noir on Aztec. |
 
 ## Key Concepts
 
@@ -115,6 +118,31 @@ The Noir implementation provides production-ready circuits for:
 - ✅ Contract validation to prevent proof forgery
 - ✅ Comprehensive test suite
 
+## Sybil Resistance (Active Development)
+
+The framework implements defense-in-depth against Sybil attacks through four complementary mechanisms:
+
+- **Economic escrow** — Contract stakes require locked funds, creating real cost for fake contracts
+- **Counterparty trust weighting** — Contracts with low-trust counterparties contribute less to your score
+- **Outcome variance requirements** — Suspiciously uniform histories are flagged as implausible
+- **Temporal velocity limits** — Trust accumulation is rate-limited to prevent burst attacks
+
+These mechanisms compose to make Sybil attacks economically irrational while preserving accessibility for legitimate newcomers. Parameter tuning and additional hardening are ongoing.
+
+**Mathematical formulation:**
+
+| Mechanism | Formula |
+|-----------|---------|
+| Counterparty Factor | $\gamma(c) = \sigma(V_t(\text{counterparty}) / \lambda)$ |
+| Velocity Weight | $\nu(c) = 1 / (1 + k \cdot \max(0, \text{rank} - N))$ |
+| Variance Check | $\text{plausible}(h) \iff \|h\| < N_{\min} \lor \text{var}(\text{outcomes}) \geq \varepsilon$ |
+
+The enhanced trust calculation becomes:
+
+$$V_t(\text{Agent}) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c) \cdot \gamma(c) \cdot \nu(c)$$
+
+See [Sybil_Resistance_Architecture.md](./Sybil_Resistance_Architecture.md) for detailed design rationale and attack scenario analysis.
+
 ## Why Aztec/Noir?
 
 q\<T\> requires privacy as the default execution model, not an optional layer. Aztec provides:
@@ -154,8 +182,10 @@ See [Blockchain_Selection_for_Quantum_of_Trust_Implementation.md](./Blockchain_S
 ### Reading Order
 
 1. Start with **QuantumOfTrust_v10.md** for the conceptual framework
-2. Review **Blockchain_Selection_for_Quantum_of_Trust_Implementation.md** for platform rationale
-3. Study **Quantum_of_Trust_Equations_in_Noir.md** for implementation details
+2. Review **The_Quantum_of_Trust_Math_Equations_in_Plain_English.md** for accessible explanations
+3. Study **Sybil_Resistance_Architecture.md** for security mechanisms
+4. Review **Blockchain_Selection_for_Quantum_of_Trust_Implementation.md** for platform rationale
+5. Study **Quantum_of_Trust_Equations_in_Noir.md** for implementation details
 
 ### For Developers
 
@@ -191,7 +221,7 @@ Please open an issue to discuss proposed changes before submitting pull requests
 
 ## License
 
-MIT
+[To be determined — suggest MIT or Apache 2.0 for maximum adoption]
 
 ## Acknowledgments
 

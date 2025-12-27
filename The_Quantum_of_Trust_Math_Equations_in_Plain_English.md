@@ -20,7 +20,7 @@ This document catalogs every mathematical equation from the Quantum of Trust whi
 4. [Agent Trust Value Calculation](#4-agent-trust-value-calculation)
 5. [Contract Structure](#5-contract-structure)
 6. [Outcome Range](#6-outcome-range)
-7. [The Weighting Function](#7-the-weighting-function)
+7. [The Base Weighting Function](#7-the-base-weighting-function)
 8. [Eligibility Condition](#8-eligibility-condition)
 9. [Threshold Function](#9-threshold-function)
 10. [History Evolution](#10-history-evolution)
@@ -28,6 +28,10 @@ This document catalogs every mathematical equation from the Quantum of Trust whi
 12. [DAO Valuation](#12-dao-valuation)
 13. [Sybil Resistance](#13-sybil-resistance)
 14. [Convergence Criterion](#14-convergence-criterion)
+15. [Counterparty Trust Factor](#15-counterparty-trust-factor)
+16. [Velocity Weight](#16-velocity-weight)
+17. [Outcome Variance Constraint](#17-outcome-variance-constraint)
+18. [Escrow Verification](#18-escrow-verification)
 
 ---
 
@@ -113,11 +117,11 @@ This is crucial: **negative trust is not the same as zero trust**.
 
 ### The Math
 
-$$V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)$$
+$$V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c) \cdot \gamma(c) \cdot \nu(c)$$
 
 ### Plain English Translation
 
-> "An Agent's trust value equals the sum of: (each contract's weight) times (that contract's outcome), added up across all contracts in their history."
+> "An Agent's trust value equals the sum of each contract's contribution, where each contribution is: (base weight) × (outcome) × (counterparty factor) × (velocity factor), added up across all contracts in their history."
 
 ### Expanded Explanation
 
@@ -125,21 +129,24 @@ Breaking this down piece by piece:
 
 - $V_t(\text{Agent}(t, h_t))$ — "The trust value of an Agent who has skill type t and history h"
 - $\sum_{c \in h_t}$ — "Add up the following for every contract c in the history h"
-- $\omega(c)$ — "The weight of that contract" (how much it should count)
+- $\omega(c)$ — "The base weight of that contract" (stake, difficulty, recency)
 - $\text{outcome}(c)$ — "How well the contract went" (success or failure)
+- $\gamma(c)$ — "The counterparty trust factor" (see [#15](#15-counterparty-trust-factor))
+- $\nu(c)$ — "The velocity weight" (see [#16](#16-velocity-weight))
 - $\cdot$ — "multiplied by"
 
-So for each contract:
-- A successful contract with high weight adds a lot to your trust
-- A failed contract with high weight subtracts a lot from your trust
-- Low-weight contracts (small stakes, easy tasks) matter less either way
+So for each contract, four factors determine its contribution:
+1. **Base weight**: High stakes + high difficulty + recent = high base weight
+2. **Outcome**: Success (+1) to failure (-1)
+3. **Counterparty factor**: Contracts with trusted counterparties count more
+4. **Velocity factor**: Burst activity gets diminishing returns
 
 **Example**: Imagine an Avatar with 3 contracts:
-1. Big project, succeeded: weight=10, outcome=+1 → contributes +10
-2. Medium project, partial success: weight=5, outcome=+0.5 → contributes +2.5
-3. Small project, failed: weight=2, outcome=-1 → contributes -2
+1. Big project with trusted counterparty, succeeded: ω=10, outcome=+1, γ=0.9, ν=1.0 → contributes +9.0
+2. Medium project with new counterparty, partial success: ω=5, outcome=+0.5, γ=0.5, ν=1.0 → contributes +1.25
+3. Small project (burst activity), failed: ω=2, outcome=-1, γ=0.8, ν=0.5 → contributes -0.8
 
-Total trust = 10 + 2.5 + (-2) = **10.5 cutes**
+Total trust = 9.0 + 1.25 + (-0.8) = **9.45 cutes**
 
 ---
 
@@ -147,11 +154,11 @@ Total trust = 10 + 2.5 + (-2) = **10.5 cutes**
 
 ### The Math
 
-$$c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)$$
+$$c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau, \varepsilon, V_{\text{consumer}})$$
 
 ### Plain English Translation
 
-> "A contract is defined by six things: who's providing the service, who's consuming it, what skill type it involves, how much is at stake, how difficult it is, and its deadline."
+> "A contract is defined by eight things: who's providing the service, who's consuming it, what skill type it involves, how much is at stake, how difficult it is, its deadline, the escrow commitment, and the consumer's trust level when the contract completed."
 
 ### Expanded Explanation
 
@@ -165,12 +172,13 @@ This tuple defines what a contract contains:
 | $s$ | The stake (value at risk) | 1000 tokens |
 | $d$ | Difficulty rating (0-10) | 7 |
 | $\tau$ | Deadline/timestamp | "2025-03-01" |
+| $\varepsilon$ | Escrow commitment | Cryptographic proof that stake is locked |
+| $V_{\text{consumer}}$ | Consumer's trust at completion | 45.2 (snapshot) |
 
-**Why these six?** Because they determine how much a contract should "count" toward trust:
-- Higher stakes → more signal
-- Higher difficulty → more signal
-- Who you worked with matters (counterparty trust)
-- When it happened matters (recency)
+**Why these eight?** The original six determine how much a contract should "count" toward trust. The two new fields enable Sybil resistance:
+
+- **Escrow commitment** ($\varepsilon$): Proves the stake is real, not just a claimed number. Creating fake contracts now costs real money.
+- **Consumer trust snapshot** ($V_{\text{consumer}}$): Records the counterparty's trust at completion time. Used to calculate the counterparty factor. Stored as a snapshot so trust calculations remain stable and independent.
 
 ---
 
@@ -202,29 +210,29 @@ This continuous range allows for nuance:
 
 ---
 
-## 7. The Weighting Function
+## 7. The Base Weighting Function
 
 ### The Math
 
-$$\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)$$
+$$\omega(c) = f\big(s(c),\ d(c),\ \text{recency}(c)\big)$$
 
 ### Plain English Translation
 
-> "The weight of a contract is a function of four things: the stake involved, the difficulty, the trust level of the counterparty who hired you, and how recent the contract is."
+> "The base weight of a contract is a function of three things: the stake involved, the difficulty, and how recent the contract is."
 
 ### Expanded Explanation
 
-This function determines **how much a contract should count**. Four factors:
+This function determines the **base weight**—how much a contract should count before adjustment factors are applied. Three factors:
 
 1. **Stake** $s(c)$: A $100,000 contract matters more than a $100 contract. If you can deliver on high-stakes work, that's meaningful signal.
 
 2. **Difficulty** $d(c)$: Completing a hard task proves more than completing an easy one. Anyone can succeed at trivial work.
 
-3. **Counterparty trust** $V_t(a_{\text{consumer}})$: A positive review from a trusted Avatar counts more than one from an unknown Avatar. This prevents trust laundering—you can't boost your reputation by having your friends (with no reputation) give you fake positive reviews.
+3. **Recency**: Recent contracts matter more than old ones. Trust requires ongoing reinforcement. Coasting on old successes doesn't work forever.
 
-4. **Recency**: Recent contracts matter more than old ones. Trust requires ongoing reinforcement. Coasting on old successes doesn't work forever.
+**Note**: In earlier versions, counterparty trust was included in the base weight. It's now a separate adjustment factor (γ) applied after the base weight is calculated. This separation makes the Sybil resistance properties more explicit.
 
-**Real-world analogy**: It's like how a recommendation letter matters more if it's from someone respected, recent, for difficult work, and with real stakes.
+**Real-world analogy**: The base weight is like the "raw importance" of a recommendation letter—recent, for difficult work, with real stakes. The counterparty factor (γ) then adjusts based on who wrote the letter.
 
 ---
 
@@ -232,25 +240,24 @@ This function determines **how much a contract should count**. Four factors:
 
 ### The Math
 
-$$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$$
+$$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c) \land \text{plausible}(h_t(a))$$
 
 ### Plain English Translation
 
-> "An Avatar is eligible for a contract if and only if their trust value is greater than or equal to the contract's threshold requirement."
+> "An Avatar is eligible for a contract if and only if their trust value meets the threshold AND their history is plausible (not suspicious)."
 
 ### Expanded Explanation
 
-The $\iff$ symbol means "if and only if"—it's a two-way condition.
+The $\iff$ symbol means "if and only if"—it's a two-way condition. The $\land$ symbol means "and."
 
-This is the **core gatekeeping mechanism**:
+This is the **core gatekeeping mechanism** with two requirements:
 
-- Every contract has a minimum trust requirement ($\theta$)
-- Only Avatars who meet or exceed that requirement can bid
-- Higher-stakes, harder contracts have higher thresholds
+1. **Trust threshold**: Only Avatars who meet or exceed the minimum trust requirement ($\theta$) can bid
+2. **History plausibility**: The Avatar's history must pass the variance check (see [#17](#17-outcome-variance-constraint))
 
-**Why this matters**: It creates a natural progression. New Avatars can only access small, easy contracts. As they build trust, they unlock access to bigger opportunities. This is the "trust ladder."
+**Why both?** The trust threshold ensures capability. The plausibility check catches gaming—an Avatar with 50 perfect contracts might have high trust but is statistically suspicious.
 
-**The key privacy innovation**: Zero-knowledge proofs let an Avatar prove "I meet the threshold" without revealing their exact score or any of their contract history.
+**The key privacy innovation**: Zero-knowledge proofs let an Avatar prove "I meet the threshold AND my history is plausible" without revealing their exact score or any of their contract history.
 
 ---
 
@@ -317,28 +324,30 @@ This equation describes how history grows:
 
 ### The Math
 
-$$V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)$$
+$$V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n) \cdot \gamma(c_n) \cdot \nu(c_n)$$
 
 ### Plain English Translation
 
-> "Your trust value after completing a contract equals your previous trust value plus (the contract's weight times its outcome)."
+> "Your trust value after completing a contract equals your previous trust value plus the new contract's full contribution (base weight × outcome × counterparty factor × velocity factor)."
 
 ### Expanded Explanation
 
 This is the **trust update rule**—how trust changes after each contract:
 
 - $V_t^{(n)}(a)$ — Your trust before this contract
-- $\omega(c_n) \cdot \text{outcome}(c_n)$ — The contribution (positive or negative) from this contract
+- $\omega(c_n) \cdot \text{outcome}(c_n) \cdot \gamma(c_n) \cdot \nu(c_n)$ — The contribution from this contract
 - $V_t^{(n+1)}(a)$ — Your trust after this contract
 
 **Key insight**: Trust changes incrementally. Each contract moves your score up or down based on:
-- How important the contract was (weight)
+- How important the contract was (base weight)
 - How well you did (outcome)
+- How trusted your counterparty was (counterparty factor)
+- Whether you're accumulating too fast (velocity factor)
 
 **Examples**:
-- Succeed at a big contract (+8 weight × +1 outcome) → trust increases by 8
-- Fail at a small contract (+2 weight × -1 outcome) → trust decreases by 2
-- Partial success on medium contract (+5 weight × +0.6 outcome) → trust increases by 3
+- Succeed at a big contract with trusted counterparty: (+8 × +1 × 0.9 × 1.0) → trust increases by 7.2
+- Fail at a small contract: (+2 × -1 × 0.7 × 1.0) → trust decreases by 1.4
+- Burst activity (10th contract this week): (+5 × +1 × 0.8 × 0.3) → trust increases by only 1.2
 
 **There is no coasting**: If you stop working, your trust doesn't stay the same—it gradually decays as recency weighting makes old contracts count for less.
 
@@ -379,31 +388,50 @@ Breaking this down:
 
 ### The Math
 
-$$|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i$$
+Sybil resistance is achieved through four complementary mechanisms:
+
+$$\text{cost}(\text{attack}) \propto \sum_{c} s(c) \quad \text{(Economic Escrow)}$$
+
+$$\gamma(c) = \sigma\left(\frac{V_t(a_{\text{consumer}})}{\lambda}\right) \quad \text{(Counterparty Weighting)}$$
+
+$$\text{plausible}(h) \iff |h| < N_{\min} \lor \text{var}(\text{outcomes}) \geq \varepsilon_{\min} \quad \text{(Variance)}$$
+
+$$\frac{\Delta V_t}{\Delta \text{time}} \leq v_{\max} \quad \text{(Velocity Limits)}$$
 
 ### Plain English Translation
 
-> "The size of an honest Avatar's history is greater than the size of any individual sybil Avatar's history, for all sybils."
+> "Sybil attacks are defeated through four mechanisms: (1) creating contracts costs real money, (2) contracts with low-trust counterparties count less, (3) suspiciously perfect histories are flagged, and (4) trust can't be accumulated too quickly."
 
 ### Expanded Explanation
 
-The $|...|$ notation means "the size of" or "number of items in."
-The $\forall$ symbol means "for all."
-
 **What's a Sybil attack?** Creating multiple fake identities to game the system.
 
-**Why Sybils fail in this framework**: If you split your activity across $k$ fake Avatars:
+**Why the original defense was insufficient**: The original equation only captured one aspect:
 
-- Your time/resources are divided $k$ ways
-- Each sybil gets roughly $1/k$ as many contracts as an honest Avatar would
-- Smaller history = less trust = access to fewer contracts
-- The economics favor consolidation, not fragmentation
+$$|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i$$
 
-**Example**: 
-- Honest Alice completes 100 contracts → $V_t = 85$
-- Sybil Bob splits across 5 fake Avatars, each completes 20 contracts → each has $V_t ≈ 17$
+This says "honest Avatars have bigger histories than individual Sybils." But a sophisticated attacker could create 20 Sybils six months ago, have them trade with each other, and each would have deep history, large size, and diverse counterparties—all fake.
 
-Alice qualifies for high-value contracts; none of Bob's sybils do. Bob would have been better off using one identity.
+**The four mechanisms work together**:
+
+| Mechanism | What It Prevents | How |
+|-----------|------------------|-----|
+| Economic Escrow | Free fake contracts | Must lock real funds for every contract |
+| Counterparty Weighting | Trust laundering | Contracts with low-trust Sybils contribute little |
+| Outcome Variance | Perfect-score gaming | All +1.0 outcomes are statistically implausible |
+| Velocity Limits | Burst grinding | Can't gain unlimited trust quickly |
+
+**Example: The 20-Sybil Ring Attack**
+
+Without the mechanisms: Attacker creates 20 Sybils, each trades with all 19 others, giving perfect scores. Each Sybil ends up with high trust.
+
+With the mechanisms:
+1. **Escrow**: 380 contracts require locking real capital (20 × 19)
+2. **Counterparty factor**: All counterparties start at zero trust, so γ ≈ 0.27, meaning contracts contribute only 27% of face value
+3. **Variance**: All +1.0 outcomes fail the plausibility check
+4. **Velocity**: Creating 19 contracts quickly means most have ν << 1
+
+Result: Each Sybil ends up with trust far below what an honest single-identity actor would achieve. The attack is economically irrational.
 
 ---
 
@@ -437,6 +465,148 @@ This is the **validation criterion**—how we know the math works:
 
 ---
 
+## 15. Counterparty Trust Factor
+
+### The Math
+
+$$\gamma(c) = \sigma\left(\frac{V_t(a_{\text{consumer}})}{\lambda}\right)$$
+
+Where $\sigma(x) = \frac{1}{1 + e^{-x}}$ is the sigmoid function.
+
+### Plain English Translation
+
+> "The counterparty trust factor is the sigmoid of the consumer's trust divided by a scale parameter. This produces a value between 0 and 1 that's low when the counterparty has low or negative trust, and high when the counterparty has high trust."
+
+### Expanded Explanation
+
+This factor adjusts how much a contract contributes based on **who you worked with**:
+
+- $V_t(a_{\text{consumer}})$ — The trust level of the Avatar who hired you
+- $\lambda$ — Scale parameter (suggested: 50)
+- $\sigma$ — Sigmoid function, which smoothly maps any number to the range (0, 1)
+
+**How the sigmoid works**:
+
+| Counterparty Trust | γ (with λ=50) | Effect |
+|-------------------|---------------|--------|
+| -100 | ≈ 0.12 | Contract counts for only 12% |
+| -50 | ≈ 0.27 | Contract counts for only 27% |
+| 0 | = 0.50 | Contract counts for 50% |
+| +50 | ≈ 0.73 | Contract counts for 73% |
+| +100 | ≈ 0.88 | Contract counts for 88% |
+
+**Why this creates a Sybil trap**: New Sybils have zero trust. When they contract with each other, γ ≈ 0.5. As they accumulate negative trust (from variance/velocity penalties), γ drops further. To escape, they need contracts with legitimate high-trust parties—who have no incentive to contract with unproven Sybils.
+
+**The bootstrapping problem**: This also affects legitimate newcomers. The difference: legitimate newcomers can work with established parties by starting small and proving themselves. Sybil networks can only work with each other.
+
+---
+
+## 16. Velocity Weight
+
+### The Math
+
+$$\nu(c) = \frac{1}{1 + k \cdot \max(0, \text{rank}(c, T) - N)}$$
+
+### Plain English Translation
+
+> "The velocity weight starts at 1 for your first N contracts in a time period, then decreases for each additional contract. The more contracts you try to cram into a short period, the less each one counts."
+
+### Expanded Explanation
+
+This factor prevents **burst attacks** where someone tries to grind many contracts quickly:
+
+- $\text{rank}(c, T)$ — This contract's position among all contracts completed in time period T
+- $N$ — Number of full-weight contracts allowed per period (suggested: 10)
+- $k$ — Decay rate (suggested: 0.5)
+
+**How it works**:
+
+| Contract # in period | ν (with N=10, k=0.5) | Effect |
+|---------------------|----------------------|--------|
+| 1-10 | 1.0 | Full weight |
+| 11 | 0.67 | 67% weight |
+| 12 | 0.50 | 50% weight |
+| 15 | 0.29 | 29% weight |
+| 20 | 0.17 | 17% weight |
+
+**Why progressive decay instead of hard cutoff?** A hard limit ("only 10 contracts per week count") creates cliff effects and punishes legitimate burst activity. Progressive decay is softer: extra contracts still count, just less. Legitimate users doing a big project push are mildly affected; Sybils grinding 100 contracts get severely diminished returns.
+
+**Parameters**:
+- $T$ — Time period (suggested: 7 days)
+- $N$ — Full-weight allowance (suggested: 10 contracts)
+- $k$ — Decay rate (suggested: 0.5)
+
+---
+
+## 17. Outcome Variance Constraint
+
+### The Math
+
+$$\text{plausible}(h) \iff |h| < N_{\min} \lor \text{var}(\text{outcomes}(h)) \geq \varepsilon_{\min}$$
+
+### Plain English Translation
+
+> "A history is plausible if either: it's small (fewer than the minimum for statistical analysis), OR its outcome variance meets the minimum threshold. Histories with many contracts but suspiciously uniform outcomes are implausible."
+
+### Expanded Explanation
+
+The $\lor$ symbol means "or."
+
+This constraint catches **outcome gaming**—when someone gives themselves (or their Sybil friends) perfect scores:
+
+- $|h|$ — Size of the history
+- $N_{\min}$ — Minimum size for variance check (suggested: 10)
+- $\text{var}(\text{outcomes})$ — Statistical variance of outcome values
+- $\varepsilon_{\min}$ — Minimum required variance (suggested: 0.1)
+
+**Why small histories are exempt**: With only 5 contracts, you might legitimately have all successes. With 50 contracts, all +1.0 outcomes are statistically implausible—real work has variation.
+
+**What counts as suspicious?**
+
+| History | Outcome Distribution | Variance | Plausible? |
+|---------|---------------------|----------|------------|
+| 5 contracts | All +1.0 | 0 | ✓ (too small to judge) |
+| 50 contracts | All +1.0 | 0 | ✗ (impossible) |
+| 50 contracts | Mix of +0.7 to +1.0 | 0.08 | ✗ (barely, but suspicious) |
+| 50 contracts | Mix of +0.3 to +1.0 | 0.15 | ✓ (realistic) |
+| 50 contracts | Mix of -0.5 to +1.0 | 0.35 | ✓ (realistic) |
+
+**ZK-friendly alternative**: Computing exact variance is expensive in zero-knowledge circuits. An equivalent constraint: "At least M contracts have outcome < 0.8" where M scales with history size. This achieves the same goal with simpler arithmetic.
+
+---
+
+## 18. Escrow Verification
+
+### The Math
+
+$$\text{valid\_escrow}(c) \iff \text{verify}(\varepsilon, s) \land \text{locked}(\varepsilon) \land \text{owner}(\varepsilon) \in \{a_{\text{provider}}, a_{\text{consumer}}\}$$
+
+### Plain English Translation
+
+> "An escrow is valid if and only if: the cryptographic commitment verifies against the stated stake amount, the funds are currently locked, and the escrow is owned by one of the contract parties."
+
+### Expanded Explanation
+
+The $\land$ symbol means "and."
+
+This equation defines **what makes an escrow commitment valid**:
+
+1. **verify(ε, s)**: The cryptographic proof ε must verify that exactly s tokens are committed. You can't claim a 1000-token stake while only locking 10 tokens.
+
+2. **locked(ε)**: The escrow must be currently locked, not already released. You can't reuse the same escrow for multiple contracts.
+
+3. **owner(ε) ∈ {provider, consumer}**: The locked funds must belong to one of the contract parties. You can't use someone else's escrow.
+
+**Why this matters for Sybil resistance**: Creating fake contracts now has real cost. If you want to give your Sybil friend a contract with 1000-token stake, you must actually lock 1000 tokens. For a 20-Sybil ring attack with 380 contracts at 1000 tokens each, you'd need to lock 380,000 tokens in escrow at various times. Even if you get them back after each contract completes, the capital requirement and opportunity cost make attacks expensive.
+
+**How escrow works in practice** (on Aztec):
+1. Before creating a contract, one party locks tokens in a private note
+2. The note's nullifier prevents double-spending
+3. Upon contract completion, the escrow is released based on outcome
+4. The note system ensures privacy while proving the commitment exists
+
+---
+
 ## Summary: The Complete Picture
 
 Here's how all the equations fit together:
@@ -449,26 +619,41 @@ Here's how all the equations fit together:
    V_t: q⟨T⟩ → ℝ (produces a real number)
    
 3. CALCULATION: How is an Agent's trust computed?
-   V_t = Σ(weight × outcome) for each contract
+   V_t = Σ(base_weight × outcome × counterparty_factor × velocity_factor)
 
-4. WEIGHTING: What makes a contract count more?
-   weight = f(stake, difficulty, counterparty trust, recency)
+4. BASE WEIGHTING: What makes a contract's base weight high?
+   ω = f(stake, difficulty, recency)
 
-5. GATEKEEPING: Who can access what contracts?
-   eligible if V_t ≥ threshold
+5. COUNTERPARTY FACTOR: How does counterparty trust affect contribution?
+   γ = sigmoid(counterparty_trust / scale)
+
+6. VELOCITY FACTOR: How does burst activity affect contribution?
+   ν = 1 / (1 + k × excess_contracts_in_period)
+
+7. GATEKEEPING: Who can access what contracts?
+   eligible if V_t ≥ threshold AND history is plausible
+
+8. THRESHOLD: How is the minimum trust calculated?
    threshold = log(1 + stake) × difficulty
 
-6. EVOLUTION: How does trust change over time?
-   new_trust = old_trust + (weight × outcome)
+9. PLAUSIBILITY: What makes a history plausible?
+   plausible if small OR outcome_variance ≥ minimum
 
-7. AGGREGATION: How do DAOs measure trust?
-   DAO_trust = Φ(member trust values)
+10. ESCROW: How is stake verified?
+    valid if commitment_verifies AND locked AND owned_by_party
 
-8. SECURITY: Why don't Sybil attacks work?
-   Honest history size > any individual sybil's history size
+11. EVOLUTION: How does trust change over time?
+    new_trust = old_trust + (ω × outcome × γ × ν)
 
-9. VALIDATION: How do we know it works?
-   Correlation(computed trust, actual reliability) → 1
+12. AGGREGATION: How do DAOs measure trust?
+    DAO_trust = Φ(member trust values)
+
+13. SECURITY: Why don't Sybil attacks work?
+    Four mechanisms: escrow cost, counterparty weighting, 
+    variance requirements, velocity limits
+
+14. VALIDATION: How do we know it works?
+    Correlation(computed trust, actual reliability) → 1
 ```
 
 ---
@@ -479,15 +664,30 @@ Here's how all the equations fit together:
 
 2. **Trust is earned through action**: Every contract adds to or subtracts from your score based on how well you performed.
 
-3. **Context matters**: The weight of a contract depends on stakes, difficulty, who you worked with, and recency.
+3. **Context matters**: The contribution of a contract depends on stakes, difficulty, recency, who you worked with, and how fast you're accumulating.
 
 4. **Trust unlocks access**: Higher trust = eligibility for better contracts = opportunity to build more trust (virtuous cycle).
 
 5. **DAOs aggregate trust**: Groups can combine individual trust values into collective capability measures.
 
-6. **Gaming is expensive**: The math makes Sybil attacks economically irrational—you're better off being honest.
+6. **Gaming is expensive**: Four mechanisms make Sybil attacks economically irrational—you're better off being honest.
 
 7. **The system is verifiable**: We can mathematically prove that trust scores converge to actual reliability.
+
+8. **Defense in depth**: No single mechanism stops all attacks; the combination creates robust resistance.
+
+---
+
+## Parameters Reference
+
+| Parameter | Symbol | Suggested Default | Purpose |
+|-----------|--------|-------------------|---------|
+| Counterparty scale | λ | 50 | Centers sigmoid around trust=50 |
+| Velocity period | T | 7 days | Time window for velocity checks |
+| Velocity allowance | N | 10 | Full-weight contracts per period |
+| Velocity decay | k | 0.5 | Decay rate for excess contracts |
+| Variance threshold | ε_min | 0.1 | Minimum required outcome variance |
+| Variance exemption | N_min | 10 | History size below which variance not checked |
 
 ---
 
