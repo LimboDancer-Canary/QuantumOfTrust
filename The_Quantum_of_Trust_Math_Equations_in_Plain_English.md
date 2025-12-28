@@ -578,8 +578,8 @@ This constraint catches **outcome gaming**—when someone gives themselves (or t
 ## 18. Escrow Verification
 
 ### The Math
-
-$$\text{valid\_escrow}(c) \iff \text{verify}(\varepsilon, s) \land \text{locked}(\varepsilon) \land \text{owner}(\varepsilon) \in \{a_{\text{provider}}, a_{\text{consumer}}\}$$
+ 
+$$\text{valid}_\text{escrow}(c) \iff \text{verify}(\varepsilon, s) \land \text{locked}(\varepsilon) \land \text{owner}(\varepsilon) \in \{a_{\text{provider}}, a_{\text{consumer}}\}$$
 
 ### Plain English Translation
 
