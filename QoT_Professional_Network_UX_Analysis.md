@@ -6,9 +6,9 @@
 
 ## Executive Summary
 
-LinkedIn's core value proposition-+professional reputation enabling opportunity access-+maps remarkably well to QoT's architecture. But where LinkedIn conflates identity with reputation (your legal name IS your credential), QoT can deliver the same value while preserving pseudonymity. This analysis explores how a Nostr-based client like Nostria could become **the professional network for the pseudonymous economy**.
+LinkedIn's core value proposition--professional reputation enabling opportunity access--maps remarkably well to QoT's architecture. But where LinkedIn conflates identity with reputation (your legal name IS your credential), QoT can deliver the same value while preserving pseudonymity. This analysis explores how a Nostr-based client like Nostria could become **the professional network for the pseudonymous economy**.
 
-The key insight: **LinkedIn is fundamentally a trust-gating system**. Recruiters filter by work history, endorsements, and network proximity. QoT formalizes this into mathematical eligibility-+and enables it without identity disclosure.
+The key insight: **LinkedIn is fundamentally a trust-gating system**. Recruiters filter by work history, endorsements, and network proximity. QoT formalizes this into mathematical eligibility--and enables it without identity disclosure.
 
 ---
 
@@ -75,7 +75,7 @@ A Nostria profile already shows:
 
 ### Work History -> Contract Outcomes (Privacy-First)
 
-LinkedIn shows a sequence of job titles and companies. QoT shows **aggregate trust per skill**-+individual contracts are private by default.
+LinkedIn shows a sequence of job titles and companies. QoT shows **aggregate trust per skill**--individual contracts are private by default.
 
 **Public profile (visible to all):**
 ```
@@ -124,7 +124,7 @@ LinkedIn shows a sequence of job titles and companies. QoT shows **aggregate tru
 +-----------------------------------------------------------------+
 ```
 
-The Avatar owner sees all their contracts. Negative outcomes are visible here and computed into trust-+you can't delete a failed project from your history. But whether others see specific contracts depends on mutual consent.
+The Avatar owner sees all their contracts. Negative outcomes are visible here and computed into trust--you can't delete a failed project from your history. But whether others see specific contracts depends on mutual consent.
 
 ### Customer Profile  Avatar with Consumer Trust
 
@@ -270,7 +270,7 @@ The current QoT model treats contracts as atomic: they exist, then they have an 
 
 The first three phases represent *trust-relevant events* for providers. Completing specification demonstrates requirements analysis skill. Completing planning demonstrates architecture skill. Completing implementation demonstrates development skill.
 
-Verification is different-+it's the customer's acceptance mechanism that determines the implementation outcome.
+Verification is different--it's the customer's acceptance mechanism that determines the implementation outcome.
 
 ### Proposed: Multi-Phase Contract Structure
 
@@ -278,7 +278,7 @@ Verification is different-+it's the customer's acceptance mechanism that determi
 
 **Multi-provider contracts**: Different Avatars may perform different phases. Each phase has its own provider who earns trust for that skill.
 
-**Verification is special**: The customer (or their delegate) performs verification. This is the acceptance mechanism that determines the implementation outcome-+not a trust-earning phase for a provider.
+**Verification is special**: The customer (or their delegate) performs verification. This is the acceptance mechanism that determines the implementation outcome--not a trust-earning phase for a provider.
 
 ```
 c_phased = (
@@ -355,7 +355,7 @@ The mutual sign-off requirement is what prevents gaming. A provider can't pad wi
 
 **Publication consent** follows the same mutual sign-off pattern but controls *visibility*, not trust weight. For multi-provider contracts, publication requires consent from consumer AND any provider whose phase would be revealed.
 
-**QA as a separate contract**: Quality Assurance is a valid skill type. QA professionals earn trust through their own contracts-+not as a phase within someone else's build contract:
+**QA as a separate contract**: Quality Assurance is a valid skill type. QA professionals earn trust through their own contracts--not as a phase within someone else's build contract:
 
 ```
 Contract A: Build the thing
@@ -374,7 +374,7 @@ Contract B: Test the thing (separate contract)
   verification: performed by a_customer (did QA do good work)
 ```
 
-The QA professional earns trust in "Quality Assurance" skill based on how well they performed their testing work-+as judged by the customer. The outcome of Contract B may inform the customer's verification decision on Contract A, but that's operational coordination, not part of the trust framework.
+The QA professional earns trust in "Quality Assurance" skill based on how well they performed their testing work--as judged by the customer. The outcome of Contract B may inform the customer's verification decision on Contract A, but that's operational coordination, not part of the trust framework.
 
 ### Benefits of Multi-Phase Contracts
 
@@ -407,7 +407,7 @@ If implementation fails but spec/planning succeeded, those providers retain posi
 planning_accuracy(c) = tasks_completed_as_planned / planned_task_count
 ```
 
-This ratio becomes a trust signal for **Project Planning** skill. The planner (architect) who consistently delivers accurate plans has demonstrated predictability-+valuable independent of who implements.
+This ratio becomes a trust signal for **Project Planning** skill. The planner (architect) who consistently delivers accurate plans has demonstrated predictability--valuable independent of who implements.
 
 **5. Mutual Sign-Off Prevents Gaming**
 
@@ -418,7 +418,7 @@ Each phase requires sign-off from that phase's provider AND the consumer. This c
 
 **6. Verification as Acceptance Mechanism**
 
-The consumer (or delegate) performs verification. This determines the implementation outcome but doesn't itself earn trust-+it's the customer exercising quality control, not a provider delivering work.
+The consumer (or delegate) performs verification. This determines the implementation outcome but doesn't itself earn trust--it's the customer exercising quality control, not a provider delivering work.
 
 ### Phase State Machine (Trust-Relevant Transitions Only)
 
@@ -866,7 +866,7 @@ contract_disclosure: {
 | Public contracts weighted higher | Creates pressure/coercion to publish |
 | Private-only contracts | Prevents legitimate portfolio building |
 
-Publication consent follows the same mutual sign-off pattern as phase completion-+it's verifiable that both parties agreed. But it's a *privacy control*, not a *trust input*.
+Publication consent follows the same mutual sign-off pattern as phase completion--it's verifiable that both parties agreed. But it's a *privacy control*, not a *trust input*.
 
 **Disclosure scopes**:
 - `existence_only`: "We worked together" (no details)
@@ -893,7 +893,7 @@ phase_signoff: {
 }
 ```
 
-The trust system doesn't verify artifacts-+it trusts the mutual sign-off. If both parties agreed the deliverable was +0.92 quality, that's the signal. Artifacts exist for human due diligence, not framework verification.
+The trust system doesn't verify artifacts--it trusts the mutual sign-off. If both parties agreed the deliverable was +0.92 quality, that's the signal. Artifacts exist for human due diligence, not framework verification.
 
 ### 8. Skill Type Taxonomy
 
@@ -987,12 +987,12 @@ Looking at the screenshots:
 
 ## Conclusion
 
-The vision of "Nostria as LinkedIn with QoT" is architecturally coherent. The key insight is that LinkedIn's value-+professional reputation enabling opportunity access-+can be delivered *better* with QoT:
+The vision of "Nostria as LinkedIn with QoT" is architecturally coherent. The key insight is that LinkedIn's value--professional reputation enabling opportunity access--can be delivered *better* with QoT:
 
 | LinkedIn | QoT Professional Network |
 |----------|---------------------------|
 | Self-claimed work history | Verified contract outcomes |
-| Peer endorsements (gameable) | No endorsements-+contract outcomes are sufficient |
+| Peer endorsements (gameable) | No endorsements--contract outcomes are sufficient |
 | Binary job applications | ZK eligibility proofs |
 | Company pages | DAOs with aggregate trust |
 | Identity-bound reputation | Avatar-bound, privacy-preserving |
@@ -1002,7 +1002,7 @@ The vision of "Nostria as LinkedIn with QoT" is architecturally coherent. The ke
 
 1. **Outcomes only**: QoT captures *trust-relevant outcomes*, not operational details. Phase outcomes and planning accuracy flow into trust. Task descriptions do not.
 
-2. **Mutual sign-off prevents gaming**: The adversarial dynamic between parties provides validation-+no external complexity metrics needed.
+2. **Mutual sign-off prevents gaming**: The adversarial dynamic between parties provides validation--no external complexity metrics needed.
 
 3. **Publication requires consent**: Contract details are private by default. Both parties must agree before any contract information becomes public. This is recorded but not trust-weighted (to avoid coercion incentives).
 
@@ -1019,7 +1019,7 @@ Key design decisions that distinguish QoT from traditional professional networks
 | Decision | Rationale |
 |----------|-----------|
 | **Multi-provider contracts** | Different Avatars can perform different phases. Each earns trust for their contribution independently. Enables specialist collaboration. |
-| **Verification is acceptance, not work** | The customer (or delegate) performs verification. This determines implementation outcome but doesn't earn trust-+it's quality control, not provider delivery. |
+| **Verification is acceptance, not work** | The customer (or delegate) performs verification. This determines implementation outcome but doesn't earn trust--it's quality control, not provider delivery. |
 | **QA earns trust via separate contracts** | Quality Assurance is a valid skill type. QA professionals contract directly with customers to provide testing services. They earn QA trust from that contract, not as a phase within the build contract. |
 | **Three trust-earning phases** | Specification, Planning, Implementation. Each has a provider who earns trust. Verification is the customer's acceptance mechanism. |
 | **No endorsements** | Contract outcomes ARE attestations. Separate endorsements are either redundant (counterparty-only) or gameable (open to anyone). The mutual sign-off on phase completion is the verification. |
@@ -1029,7 +1029,7 @@ Key design decisions that distinguish QoT from traditional professional networks
 | **Planning accuracy as distinct skill** | Task completion ratio against mutually-committed baseline creates a separate trust dimension: predictability independent of implementation quality. |
 | **Aggregate trust public, contract details private** | Profile shows skill scores and contract counts. Individual contract details (counterparty, timing, stakes) require mutual publication consent. |
 | **Counterparty trust already captured in weighting** | Contract weight includes (c) counterparty factor. No need for additional "who you worked with" reputation signal. |
-| **Negative trust is permanent signal** | Failed contracts compute into trust and cannot be deleted. This is what makes QoT trust meaningful-+you can't curate your history. |
+| **Negative trust is permanent signal** | Failed contracts compute into trust and cannot be deleted. This is what makes QoT trust meaningful--you can't curate your history. |
 | **Bidirectional trust** | Customers earn trust from behavior (commitment, escrow discipline, verification integrity, scope stability). Providers can evaluate customers before accepting contracts. |
 | **Verification weight** | Customer credibility affects how much their ratings count. Rubber-stamping (low variance) or erratic (high variance) customers have reduced influence. |
 | **Team-based implementation** | Tasks within phases can have different providers. Each team member earns trust from their assigned tasks independently. Enables specialist collaboration at the task level. |
