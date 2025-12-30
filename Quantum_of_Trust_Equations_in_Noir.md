@@ -8,18 +8,18 @@ The critical insight: **we don't compute trust values to return them. We prove s
 
 ### What This Document Covers
 
-1. **ZK-specific constraints** — Fixed-size arrays, field arithmetic, private vs public inputs
-2. **Signed arithmetic** — Handling negative trust values in finite field arithmetic
-3. **Core types** — `Agent`, `Contract`, and `DAO` as Noir structs
-4. **Valuation function** — Trust computation over private history
-5. **Eligibility proofs** — The core primitive: prove V_t ≥ θ without revealing history
-6. **Contract structure** — Private notes containing contract data
-7. **Outcome handling** — Scaled integer representation in finite fields
-8. **Weighting function** — Approximations for log, exp, tanh in ZK circuits
-9. **History evolution** — Note creation and nullifier patterns
-10. **Trust evolution** — Incremental updates with private state
-11. **DAO aggregation** — Proving composite trust
-12. **Sybil resistance** — How privacy preserves the economic guarantees
+1. **ZK-specific constraints** -- Fixed-size arrays, field arithmetic, private vs public inputs
+2. **Signed arithmetic** -- Handling negative trust values in finite field arithmetic
+3. **Core types** -- `Agent`, `Contract`, and `DAO` as Noir structs
+4. **Valuation function** -- Trust computation over private history
+5. **Eligibility proofs** -- The core primitive: prove V_t >= theta without revealing history
+6. **Contract structure** -- Private notes containing contract data
+7. **Outcome handling** -- Scaled integer representation in finite fields
+8. **Weighting function** -- Approximations for log, exp, tanh in ZK circuits
+9. **History evolution** -- Note creation and nullifier patterns
+10. **Trust evolution** -- Incremental updates with private state
+11. **DAO aggregation** -- Proving composite trust
+12. **Sybil resistance** -- How privacy preserves the economic guarantees
 
 ### Key Constraints in ZK Circuits
 
@@ -28,13 +28,20 @@ The critical insight: **we don't compute trust values to return them. We prove s
 | Execution model | Proof generation + verification |
 | Data visibility | Private inputs hidden from verifier |
 | Array sizes | Fixed at compile time |
-| Arithmetic | Finite field (integers mod p) — always positive |
+| Arithmetic | Finite field (integers mod p) -- always positive |
 | Iteration | Bounded, unrolled loops |
 | Result | Boolean proof statement |
 
 ---
 
 ## Part One: ZK Fundamentals for Quantum of Trust
+
+### Mathematical Notation
+
+$$\text{Proof} = \text{ZK.Prove}(\text{statement}, \text{witness})$$
+$$\text{ZK.Verify}(\text{statement}, \text{Proof}) \rightarrow \{\text{true}, \text{false}\}$$
+
+Where the verifier learns nothing about the witness beyond the statement's truth.
 
 ### The Prover-Verifier Model
 
@@ -48,7 +55,7 @@ For Quantum of Trust:
 ```
 Prover (Avatar owner):
   - Knows: Full contract history, exact trust score
-  - Proves: "My trust in Engineering ≥ 50"
+  - Proves: "My trust in Engineering >= 50"
   - Reveals: Nothing about individual contracts
 
 Verifier (Contract poster, network):
@@ -61,11 +68,11 @@ Verifier (Contract poster, network):
 
 Noir compiles to an arithmetic circuit. Every operation becomes constraints over a finite field. Key implications:
 
-1. **No dynamic allocation** — Array sizes fixed at compile time
-2. **No unbounded loops** — All iteration counts known statically
-3. **Field arithmetic** — All values are elements of a prime field (always positive)
-4. **Conditional execution** — Both branches execute; result selected
-5. **No early returns** — Use if-else expressions instead
+1. **No dynamic allocation** -- Array sizes fixed at compile time
+2. **No unbounded loops** -- All iteration counts known statically
+3. **Field arithmetic** -- All values are elements of a prime field (always positive)
+4. **Conditional execution** -- Both branches execute; result selected
+5. **No early returns** -- Use if-else expressions instead
 
 ```noir
 // This is NOT how Noir works:
@@ -100,9 +107,16 @@ fn prove_eligibility(
 
 ## Part Two: Signed Arithmetic in Finite Fields
 
+### Mathematical Notation
+
+$$\text{Signed}(x) = (|x|, \text{sgn}(x))$$
+$$\text{where } |x| \in \mathbb{F}_p \text{ and } \text{sgn}(x) \in \{\text{positive}, \text{negative}\}$$
+
+This separates magnitude from sign, avoiding field arithmetic issues with negative values.
+
 ### The Problem
 
-Noir's `Field` type represents elements of a prime field — they are always positive. But trust values can be negative (actively distrusted agents). We need a representation for signed values.
+Noir's `Field` type represents elements of a prime field -- they are always positive. But trust values can be negative (actively distrusted agents). We need a representation for signed values.
 
 ### Solution: Signed Struct with Magnitude and Sign
 
@@ -243,10 +257,10 @@ impl Signed {
     /// Multiplies two signed values.
     /// 
     /// The sign of the result follows standard rules:
-    /// - positive × positive = positive
-    /// - negative × negative = positive
-    /// - positive × negative = negative
-    /// - negative × positive = negative
+    /// - positive  x  positive = positive
+    /// - negative  x  negative = positive
+    /// - positive  x  negative = negative
+    /// - negative  x  positive = negative
     /// 
     /// # Arguments
     /// * `other` - The value to multiply with self
@@ -254,7 +268,7 @@ impl Signed {
     /// # Returns
     /// The product as a normalized `Signed` value.
     fn mul(self, other: Signed) -> Self {
-        // XOR for sign: same signs → positive, different signs → negative
+        // XOR for sign: same signs -> positive, different signs -> negative
         Signed::new(
             self.magnitude * other.magnitude,
             self.is_negative != other.is_negative
@@ -372,6 +386,14 @@ impl Signed {
 
 ## Part Three: Constants and Fixed-Point Arithmetic
 
+### Mathematical Notation
+
+$$\text{SCALE} = 10^6$$
+$$x_{\text{fixed}} = \lfloor x \cdot \text{SCALE} \rfloor$$
+$$x_{\text{real}} = x_{\text{fixed}} / \text{SCALE}$$
+
+Fixed-point arithmetic enables decimal precision in integer-only field arithmetic.
+
 ### Global Constants
 
 ```noir
@@ -427,7 +449,7 @@ global RECENCY_HALF_LIFE_DAYS: Field = 365;
 global COUNTERPARTY_SCALING: Field = 100;
 
 /// Maximum influence of counterparty trust on weight.
-/// 0.5 * PRECISION means ±50% adjustment.
+/// 0.5 * PRECISION means 50% adjustment.
 global COUNTERPARTY_MAX_INFLUENCE: Field = 500000;
 
 /// Minimum difficulty weight multiplier (0.5 * PRECISION).
@@ -559,21 +581,21 @@ global LOG_TABLE_X: [Field; 16] = [
 /// Each value is log(1 + LOG_TABLE_X[i]) * PRECISION.
 global LOG_TABLE_Y: [Field; 16] = [
     0,          // log(1) = 0
-    693147,     // log(2) ≈ 0.693147
-    1098612,    // log(3) ≈ 1.098612
-    1791759,    // log(6) ≈ 1.791759
-    2397895,    // log(11) ≈ 2.397895
-    3044522,    // log(21) ≈ 3.044522
-    3931826,    // log(51) ≈ 3.931826
-    4615121,    // log(101) ≈ 4.615121
-    5303305,    // log(201) ≈ 5.303305
-    6216606,    // log(501) ≈ 6.216606
-    6908755,    // log(1001) ≈ 6.908755
-    7601402,    // log(2001) ≈ 7.601402
-    8517393,    // log(5001) ≈ 8.517393
-    9210440,    // log(10001) ≈ 9.210440
-    10819878,   // log(50001) ≈ 10.819878
-    11512935    // log(100001) ≈ 11.512935
+    693147,     // log(2)  0.693147
+    1098612,    // log(3)  1.098612
+    1791759,    // log(6)  1.791759
+    2397895,    // log(11)  2.397895
+    3044522,    // log(21)  3.044522
+    3931826,    // log(51)  3.931826
+    4615121,    // log(101)  4.615121
+    5303305,    // log(201)  5.303305
+    6216606,    // log(501)  6.216606
+    6908755,    // log(1001)  6.908755
+    7601402,    // log(2001)  7.601402
+    8517393,    // log(5001)  8.517393
+    9210440,    // log(10001)  9.210440
+    10819878,   // log(50001)  10.819878
+    11512935    // log(100001)  11.512935
 ];
 
 /// Approximates log(1 + x) using linear interpolation.
@@ -644,17 +666,17 @@ global DECAY_TABLE_DAYS: [Field; 12] = [
 /// Precomputed lookup table for recency decay: 0.5^(days/365) * PRECISION.
 global DECAY_TABLE_VALUES: [Field; 12] = [
     1000000,    // 0.5^0 = 1.0
-    944061,     // 0.5^(30/365) ≈ 0.944
-    835729,     // 0.5^(90/365) ≈ 0.836
-    698402,     // 0.5^(180/365) ≈ 0.698
+    944061,     // 0.5^(30/365)  0.944
+    835729,     // 0.5^(90/365)  0.836
+    698402,     // 0.5^(180/365)  0.698
     500000,     // 0.5^1 = 0.5
-    353553,     // 0.5^1.5 ≈ 0.354
+    353553,     // 0.5^1.5  0.354
     250000,     // 0.5^2 = 0.25
     125000,     // 0.5^3 = 0.125
     62500,      // 0.5^4 = 0.0625
-    31250,      // 0.5^5 ≈ 0.031
-    15625,      // 0.5^6 ≈ 0.016
-    7812        // 0.5^7 ≈ 0.008
+    31250,      // 0.5^5  0.031
+    15625,      // 0.5^6  0.016
+    7812        // 0.5^7  0.008
 ];
 
 /// Approximates 0.5^(days/365) using linear interpolation.
@@ -721,16 +743,16 @@ global TANH_TABLE_X: [Field; 11] = [
 /// Precomputed lookup table Y values for tanh(x/100) * PRECISION.
 global TANH_TABLE_Y: [Field; 11] = [
     0,          // tanh(0) = 0
-    99668,      // tanh(0.1) ≈ 0.0997
-    244919,     // tanh(0.25) ≈ 0.2449
-    462117,     // tanh(0.5) ≈ 0.4621
-    761594,     // tanh(1.0) ≈ 0.7616
-    905148,     // tanh(1.5) ≈ 0.9051
-    964028,     // tanh(2.0) ≈ 0.9640
-    995055,     // tanh(3.0) ≈ 0.9951
-    999329,     // tanh(4.0) ≈ 0.9993
-    999909,     // tanh(5.0) ≈ 0.9999
-    1000000     // tanh(10.0) ≈ 1.0
+    99668,      // tanh(0.1)  0.0997
+    244919,     // tanh(0.25)  0.2449
+    462117,     // tanh(0.5)  0.4621
+    761594,     // tanh(1.0)  0.7616
+    905148,     // tanh(1.5)  0.9051
+    964028,     // tanh(2.0)  0.9640
+    995055,     // tanh(3.0)  0.9951
+    999329,     // tanh(4.0)  0.9993
+    999909,     // tanh(5.0)  0.9999
+    1000000     // tanh(10.0)  1.0
 ];
 
 /// Approximates tanh(x/100) for a signed value using linear interpolation.
@@ -762,7 +784,7 @@ fn approx_tanh_scaled(x: Signed) -> Signed {
     }
     
     let result_magnitude = if abs_x >= TANH_TABLE_X[10] {
-        // Saturation: tanh approaches ±1 for large inputs
+        // Saturation: tanh approaches 1 for large inputs
         TANH_TABLE_Y[10]
     } else {
         let x_lower = TANH_TABLE_X[lower_idx];
@@ -926,7 +948,7 @@ impl Contract {
         self.weight != 0
     }
     
-    /// Computes this contract's contribution to trust: ω(c) · outcome(c).
+    /// Computes this contract's contribution to trust: omega(c) . outcome(c).
     /// 
     /// The contribution is:
     /// - Positive if the outcome was successful
@@ -1007,9 +1029,9 @@ struct DAOMembership {
 $$V_t: q\langle T \rangle \rightarrow \mathbb{R}$$
 
 Where:
-- $V_t = 0$ → unknown, no track record
-- $V_t > 0$ → net positive history, trusted
-- $V_t < 0$ → net negative history, actively distrusted
+- $V_t = 0$ -> unknown, no track record
+- $V_t > 0$ -> net positive history, trusted
+- $V_t < 0$ -> net negative history, actively distrusted
 
 ### Noir Implementation
 
@@ -1020,7 +1042,7 @@ Where:
 /// It sums the weighted outcomes of all contracts in the agent's history
 /// that match the specified skill type.
 /// 
-/// V_t(Agent(t, h_t)) = Σ ω(c) · outcome(c) for all c in h_t
+/// V_t(Agent(t, h_t)) = Sigma omega(c) . outcome(c) for all c in h_t
 /// 
 /// # Arguments
 /// * `history` - The agent's complete contract history
@@ -1233,7 +1255,7 @@ fn prove_minimum_history(
 
 $$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
 
-Where Φ is an aggregation function (sum, average, min, max).
+Where Phi is an aggregation function (sum, average, min, max).
 
 ### Noir Implementation
 
@@ -1300,7 +1322,7 @@ fn aggregate_minimum(values: [Signed; MAX_DAO_MEMBERS], count: Field) -> Signed 
         for i in 1..MAX_DAO_MEMBERS {
             if (i as Field) < count {
                 // Update min if current value is less than current minimum
-                // values[i] < min_val  ⟺  !values[i].gte(min_val)
+                // values[i] < min_val    !values[i].gte(min_val)
                 if !values[i].gte(min_val) {
                     min_val = values[i];
                 }
@@ -1510,15 +1532,15 @@ global OUTCOME_SUCCESS: Field = 200;
 /// 
 /// # Examples
 /// ```
-/// // 100% complete, 100% quality → +100 outcome (offset 200)
+/// // 100% complete, 100% quality -> +100 outcome (offset 200)
 /// let perfect = calculate_partial_outcome(100, 100);
 /// assert(perfect == 200);
 /// 
-/// // 50% complete, 50% quality → 0 outcome (offset 100)
+/// // 50% complete, 50% quality -> 0 outcome (offset 100)
 /// let partial = calculate_partial_outcome(50, 50);
 /// assert(partial == 100);
 /// 
-/// // 0% complete, 0% quality → -100 outcome (offset 0)
+/// // 0% complete, 0% quality -> -100 outcome (offset 0)
 /// let failure = calculate_partial_outcome(0, 0);
 /// assert(failure == 0);
 /// ```
@@ -1568,10 +1590,10 @@ $$\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\b
 /// The weight determines how much a contract contributes to trust.
 /// Higher weights mean the contract provides more signal. Factors:
 /// 
-/// 1. **Stake**: log(1 + stake) — higher stakes = more signal
-/// 2. **Difficulty**: 0.5 + (difficulty/10) × 1.5 — harder = more signal
-/// 3. **Counterparty trust**: 1 ± tanh(trust/100) × 0.5 — trusted counterparties matter more
-/// 4. **Recency**: 0.5^(days/365) — recent contracts matter more
+/// 1. **Stake**: log(1 + stake) -- higher stakes = more signal
+/// 2. **Difficulty**: 0.5 + (difficulty/10)  x  1.5 -- harder = more signal
+/// 3. **Counterparty trust**: 1  tanh(trust/100)  x  0.5 -- trusted counterparties matter more
+/// 4. **Recency**: 0.5^(days/365) -- recent contracts matter more
 /// 
 /// # Arguments
 /// * `stake` - Token amount (unscaled)
@@ -1647,7 +1669,7 @@ fn compute_weight_simple(
 /// - counterparty_weight = 1.5 (max positive influence)
 /// - recency_weight = 1.0 (completed today)
 /// 
-/// So max ≈ log(1 + stake) × 3.0
+/// So max  log(1 + stake)  x  3.0
 /// 
 /// For zero/low stake contracts, we use a fixed reasonable maximum
 /// since log(1) = 0 would otherwise allow no weight at all.
@@ -1692,7 +1714,7 @@ $$h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}$$
 
 ### Noir Implementation
 
-In Aztec, state evolution uses the "note" pattern with nullifiers. This is conceptual — actual implementation uses Aztec.nr primitives.
+In Aztec, state evolution uses the "note" pattern with nullifiers. This is conceptual -- actual implementation uses Aztec.nr primitives.
 
 ```noir
 /// Represents a note containing a single contract.
@@ -1767,7 +1789,7 @@ fn add_to_history(
     assert(verify_weight_bounds(new_contract));
     
     // Compute new trust value incrementally
-    // V_t^(n+1) = V_t^(n) + ω(c_n) · outcome(c_n)
+    // V_t^(n+1) = V_t^(n) + omega(c_n) . outcome(c_n)
     let contribution = new_contract.trust_contribution();
     let new_trust = old_state.cached_trust.add(contribution);
     
@@ -1829,7 +1851,7 @@ fn update_trust(
 /// * `contract_outcome_offset` - Outcome of the new contract (public)
 /// 
 /// # Returns
-/// True if new_trust = old_trust + (weight × outcome / 100).
+/// True if new_trust = old_trust + (weight  x  outcome / 100).
 /// 
 /// # Panics
 /// Asserts if contract_outcome_offset > OUTCOME_MAX (invalid outcome).
@@ -1922,7 +1944,7 @@ $$\theta(c) = \log(1 + s(c)) \cdot d(c)$$
 /// Calculates the trust threshold for a contract.
 /// 
 /// Higher stakes and difficulty require higher trust to participate.
-/// The formula is: θ = max(log(1+stake) × 0.1, log(1+stake) × difficulty)
+/// The formula is: theta = max(log(1+stake)  x  0.1, log(1+stake)  x  difficulty)
 /// 
 /// The minimum threshold (10% of stake factor) ensures that even
 /// zero-difficulty contracts require some baseline trust.
@@ -1945,7 +1967,7 @@ fn calculate_threshold(stake: Field, difficulty: Field) -> Field {
     // Minimum threshold: 10% of stake factor
     let minimum_threshold = fp_mul(stake_factor, MINIMUM_THRESHOLD_FACTOR);
     
-    // Standard threshold: stake_factor × difficulty
+    // Standard threshold: stake_factor  x  difficulty
     let difficulty_threshold = fp_mul(stake_factor, to_fp(difficulty));
     
     // Return the higher of the two
@@ -1973,7 +1995,7 @@ fn calculate_threshold(stake: Field, difficulty: Field) -> Field {
 /// * `history` - The agent's contract history (private)
 /// 
 /// # Returns
-/// True if V_t(agent) >= θ(contract).
+/// True if V_t(agent) >= theta(contract).
 fn prove_eligibility(
     skill_type: pub Field,
     contract_stake: pub Field,
@@ -1988,7 +2010,7 @@ fn prove_eligibility(
     // Compute threshold for this contract
     let threshold = calculate_threshold(contract_stake, contract_difficulty);
     
-    // Prove: V_t(agent) ≥ θ(contract)
+    // Prove: V_t(agent) >= theta(contract)
     trust.gte(Signed::from_positive(threshold))
 }
 
@@ -2230,7 +2252,7 @@ fn prove_history_depth(
 /// True if the agent has >= minimum_unique_counterparties.
 /// 
 /// # Complexity Warning
-/// This function is O(n²) where n = MAX_HISTORY. For MAX_HISTORY = 256,
+/// This function is O(n) where n = MAX_HISTORY. For MAX_HISTORY = 256,
 /// this creates ~65,000 constraint iterations. Consider alternatives:
 /// - Use smaller MAX_HISTORY for this specific proof
 /// - Use Merkle set membership proofs
@@ -2284,6 +2306,15 @@ fn prove_counterparty_diversity(
 ---
 
 ## Part Sixteen: Complete Example Circuit
+
+### Mathematical Notation
+
+$$\text{prove\_eligibility}(h_t, t, \theta) \rightarrow \pi$$
+$$\text{where } \pi \text{ proves } V_t(\text{Agent}(t, h_t)) \geq \theta \text{ without revealing } h_t$$
+
+This circuit combines all previous components into a single verifiable proof.
+
+### Complete Implementation
 
 Here's a complete, production-style circuit combining the key elements:
 
@@ -2610,7 +2641,7 @@ fn aggregate_minimum(values: [Signed; MAX_DAO_MEMBERS], count: Field) -> Signed 
         for i in 1..MAX_DAO_MEMBERS {
             if (i as Field) < count {
                 // Update min if current value is less than current minimum
-                // values[i] < min_val  ⟺  !values[i].gte(min_val)
+                // values[i] < min_val    !values[i].gte(min_val)
                 if !values[i].gte(min_val) {
                     min_val = values[i];
                 }
@@ -2879,9 +2910,9 @@ fn test_eligibility_pass() {
     
     // Trust = 10 * PRECISION = 10,000,000
     // Threshold for stake=100, difficulty=1:
-    //   log(101) ≈ 4.615 → 4615121 scaled
+    //   log(101)  4.615 -> 4615121 scaled
     //   threshold = 4615121 * 1 = 4615121
-    // 10,000,000 >= 4,615,121 → eligible
+    // 10,000,000 >= 4,615,121 -> eligible
     let result = main(1, 100, 1, history);
     assert(result);
 }
@@ -2904,7 +2935,7 @@ fn test_threshold_boundary() {
     let mut contracts: [Contract; MAX_HISTORY] = [Contract::empty(); MAX_HISTORY];
     
     // Create exactly enough trust to meet threshold
-    // For stake=10, difficulty=1: threshold = log(11) * 1 ≈ 2.398 * PRECISION ≈ 2397895
+    // For stake=10, difficulty=1: threshold = log(11) * 1  2.398 * PRECISION  2397895
     // Need 2.398 trust, so ~2.4 weight worth of +100 outcomes
     // With weight=PRECISION, each +100 outcome contributes PRECISION to trust
     // So we need ~2.4 contracts, round up to 3
@@ -2927,8 +2958,8 @@ fn test_threshold_boundary() {
     };
     
     // Trust = 3 * PRECISION = 3,000,000
-    // Threshold for stake=10, difficulty=1 ≈ 2,397,895
-    // 3,000,000 >= 2,397,895 → eligible
+    // Threshold for stake=10, difficulty=1  2,397,895
+    // 3,000,000 >= 2,397,895 -> eligible
     let result = main(1, 10, 1, history);
     assert(result);
 }
@@ -3023,7 +3054,7 @@ fn test_aggregate_empty() {
 | $h_t^{(n+1)} = h_t^{(n)} \cup \{c_n\}$ | `add_to_history()` / Note creation pattern |
 | $V_t^{(n+1)} = V_t^{(n)} + \omega(c_n) \cdot \text{outcome}(c_n)$ | `update_trust()` using `Signed.add()` |
 | $\omega(c) = f(s, d, V_t, \text{recency})$ | `compute_weight()` or pre-computed in `Contract.weight` |
-| $\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$ | `prove_eligibility()` — THE core circuit |
+| $\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$ | `prove_eligibility()` -- THE core circuit |
 | $\theta(c) = \log(1+s) \cdot d$ | `calculate_threshold()` with `approx_log1p()` |
 | $\text{Corr}(V_t^{(n)}, R_t)$ | Off-circuit simulation; `prove_population_statistics()` for bounds |
 | $\|h_t(a)\|$ comparisons | `prove_history_size()`, `prove_history_depth()` |

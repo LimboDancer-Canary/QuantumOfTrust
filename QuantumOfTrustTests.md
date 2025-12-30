@@ -32,6 +32,11 @@ All tests follow the **Arrange-Act-Assert (AAA)** pattern:
 11. [Contract Validation Tests](#11-contract-validation-tests)
 12. [SkillTypes Utility Tests](#12-skilltypes-utility-tests)
 13. [TrustValuation Static Helper Tests](#13-trustvaluation-static-helper-tests)
+14. [Customer Trust Calculation Tests](#14-customer-trust-calculation-tests)
+15. [Verification Weight Tests](#15-verification-weight-tests)
+16. [Task Decomposition Tests](#16-task-decomposition-tests)
+17. [Customer Profile Tests](#17-customer-profile-tests)
+18. [Hierarchical Contract Tests](#18-hierarchical-contract-tests)
 
 ---
 
@@ -42,9 +47,9 @@ Tests for the Agent trust valuation function.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  V⟨t⟩(Agent(t, h⟨t⟩)) = Σ ω(c) · outcome(c)   for all c ∈ h⟨t⟩       │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  VâŸ¨tâŸ©(Agent(t, hâŸ¨tâŸ©)) = Î£ Ï‰(c) Â· outcome(c)   for all c âˆˆ hâŸ¨tâŸ©       â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -53,54 +58,54 @@ Tests for the Agent trust valuation function.
 /// Tests for the Agent trust valuation function.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  V⟨t⟩(Agent(t, h⟨t⟩)) = Σ ω(c) · outcome(c)   for all c ∈ h⟨t⟩       │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  VâŸ¨tâŸ©(Agent(t, hâŸ¨tâŸ©)) = Î£ Ï‰(c) Â· outcome(c)   for all c âˆˆ hâŸ¨tâŸ©       â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// Where:
-///   V⟨t⟩     = Trust value for skill type t
-///   h⟨t⟩     = History of contracts for skill type t
-///   ω(c)    = Weight of contract c
-///   outcome(c) = Result of contract c ∈ [-1, 1]
+///   VâŸ¨tâŸ©     = Trust value for skill type t
+///   hâŸ¨tâŸ©     = History of contracts for skill type t
+///   Ï‰(c)    = Weight of contract c
+///   outcome(c) = Result of contract c âˆˆ [-1, 1]
 /// 
 /// Properties:
-///   V⟨t⟩ = 0   → Unknown, no track record
-///   V⟨t⟩ > 0   → Net positive history, trusted
-///   V⟨t⟩ < 0   → Net negative history, actively distrusted
+///   VâŸ¨tâŸ© = 0   â†’ Unknown, no track record
+///   VâŸ¨tâŸ© > 0   â†’ Net positive history, trusted
+///   VâŸ¨tâŸ© < 0   â†’ Net negative history, actively distrusted
 /// </summary>
 public class AgentTrustValueTests
 {
     [Fact]
     public void ComputeTrustValue_EmptyHistory_ReturnsZero()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩(Agent(t, ∅)) = Σ_{c ∈ ∅} ω(c)·outcome(c) = 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©(Agent(t, âˆ…)) = Î£_{c âˆˆ âˆ…} Ï‰(c)Â·outcome(c) = 0
         // 
         // Mathematical identity: Sum over empty set equals zero
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: h⟨t⟩ = ∅ (empty history)
+        // ARRANGE: hâŸ¨tâŸ© = âˆ… (empty history)
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         var expected = 0.0;
 
-        // ACT: V⟨t⟩(agent)
+        // ACT: VâŸ¨tâŸ©(agent)
         var actual = agent.ComputeTrustValue(SkillTypes.Engineering);
 
-        // ASSERT: V⟨t⟩ = 0 (unknown/no track record)
+        // ASSERT: VâŸ¨tâŸ© = 0 (unknown/no track record)
         Assert.Equal(expected, actual);
     }
 
     [Fact]
     public void ComputeTrustValue_SingleSuccessfulContract_ReturnsPositive()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩ = ω(c) · outcome(c)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ© = Ï‰(c) Â· outcome(c)
         // 
-        // When |h⟨t⟩| = 1:
-        //   V⟨t⟩ = 2.0 × 1.0 = 2.0
-        // ═══════════════════════════════════════════════════════════════
+        // When |hâŸ¨tâŸ©| = 1:
+        //   VâŸ¨tâŸ© = 2.0 Ã— 1.0 = 2.0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: h⟨t⟩ = {c} where ω(c)=2.0, outcome(c)=1.0
+        // ARRANGE: hâŸ¨tâŸ© = {c} where Ï‰(c)=2.0, outcome(c)=1.0
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         var contract = ContractFactory.CreateSimple(
             skillType: SkillTypes.Engineering,
@@ -109,12 +114,12 @@ public class AgentTrustValueTests
         );
         agent.AddToHistory(contract);
         
-        var expected = 2.0;  // ω × outcome = 2.0 × 1.0
+        var expected = 2.0;  // Ï‰ Ã— outcome = 2.0 Ã— 1.0
 
         // ACT
         var actual = agent.ComputeTrustValue(SkillTypes.Engineering);
 
-        // ASSERT: V⟨t⟩ > 0 (trusted)
+        // ASSERT: VâŸ¨tâŸ© > 0 (trusted)
         Assert.Equal(expected, actual);
         Assert.True(actual > 0, "Positive outcome should yield positive trust");
     }
@@ -122,14 +127,14 @@ public class AgentTrustValueTests
     [Fact]
     public void ComputeTrustValue_SingleFailedContract_ReturnsNegative()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩ = ω(c) · outcome(c)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ© = Ï‰(c) Â· outcome(c)
         // 
         // When outcome = -1 (failure):
-        //   V⟨t⟩ = 3.0 × (-1.0) = -3.0
-        // ═══════════════════════════════════════════════════════════════
+        //   VâŸ¨tâŸ© = 3.0 Ã— (-1.0) = -3.0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: h⟨t⟩ = {c} where ω(c)=3.0, outcome(c)=-1.0
+        // ARRANGE: hâŸ¨tâŸ© = {c} where Ï‰(c)=3.0, outcome(c)=-1.0
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         var contract = ContractFactory.CreateSimple(
             skillType: SkillTypes.Engineering,
@@ -138,12 +143,12 @@ public class AgentTrustValueTests
         );
         agent.AddToHistory(contract);
         
-        var expected = -3.0;  // ω × outcome = 3.0 × (-1.0)
+        var expected = -3.0;  // Ï‰ Ã— outcome = 3.0 Ã— (-1.0)
 
         // ACT
         var actual = agent.ComputeTrustValue(SkillTypes.Engineering);
 
-        // ASSERT: V⟨t⟩ < 0 (actively distrusted)
+        // ASSERT: VâŸ¨tâŸ© < 0 (actively distrusted)
         Assert.Equal(expected, actual);
         Assert.True(actual < 0, "Negative outcome should yield negative trust");
     }
@@ -151,19 +156,19 @@ public class AgentTrustValueTests
     [Fact]
     public void ComputeTrustValue_MixedOutcomes_ReturnsSumOfWeightedOutcomes()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩ = Σ_{c ∈ h⟨t⟩} ω(c) · outcome(c)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ© = Î£_{c âˆˆ hâŸ¨tâŸ©} Ï‰(c) Â· outcome(c)
         // 
-        // h⟨t⟩ = {c, c₂, c₃, c₄}
+        // hâŸ¨tâŸ© = {c, câ‚‚, câ‚ƒ, câ‚„}
         // 
         // Manual calculation:
-        //   c: ω=1.0, outcome=+1.0  →  +1.0
-        //   c₂: ω=0.8, outcome=+1.0  →  +0.8
-        //   c₃: ω=1.0, outcome=-1.0  →  -1.0
-        //   c₄: ω=0.5, outcome= 0.0  →   0.0
-        //                            ────────
-        //   V⟨t⟩ = 1.0 + 0.8 - 1.0 + 0.0 = 0.8
-        // ═══════════════════════════════════════════════════════════════
+        //   c: Ï‰=1.0, outcome=+1.0  â†’  +1.0
+        //   câ‚‚: Ï‰=0.8, outcome=+1.0  â†’  +0.8
+        //   câ‚ƒ: Ï‰=1.0, outcome=-1.0  â†’  -1.0
+        //   câ‚„: Ï‰=0.5, outcome= 0.0  â†’   0.0
+        //                            â”€â”€â”€â”€â”€â”€â”€â”€
+        //   VâŸ¨tâŸ© = 1.0 + 0.8 - 1.0 + 0.0 = 0.8
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -190,22 +195,22 @@ public class AgentTrustValueTests
     [Fact]
     public void ComputeTrustValue_PartialOutcomes_ReturnsCorrectSum()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: outcome(c) ∈ [-1, 1] (continuous range)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: outcome(c) âˆˆ [-1, 1] (continuous range)
         // 
         // Testing partial success/failure values:
-        //   c: ω=2.0, outcome=+0.5  →  +1.0
-        //   c₂: ω=2.0, outcome=-0.3  →  -0.6
-        //                            ────────
-        //   V⟨t⟩ = 1.0 - 0.6 = 0.4
-        // ═══════════════════════════════════════════════════════════════
+        //   c: Ï‰=2.0, outcome=+0.5  â†’  +1.0
+        //   câ‚‚: Ï‰=2.0, outcome=-0.3  â†’  -0.6
+        //                            â”€â”€â”€â”€â”€â”€â”€â”€
+        //   VâŸ¨tâŸ© = 1.0 - 0.6 = 0.4
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Design };
         agent.AddToHistory(ContractFactory.CreateSimple(SkillTypes.Design, outcome: 0.5, weight: 2.0));
         agent.AddToHistory(ContractFactory.CreateSimple(SkillTypes.Design, outcome: -0.3, weight: 2.0));
 
-        var expected = 0.4;  // (2.0 × 0.5) + (2.0 × -0.3) = 1.0 - 0.6
+        var expected = 0.4;  // (2.0 Ã— 0.5) + (2.0 Ã— -0.3) = 1.0 - 0.6
 
         // ACT
         var actual = agent.ComputeTrustValue(SkillTypes.Design);
@@ -217,30 +222,30 @@ public class AgentTrustValueTests
     [Fact]
     public void ComputeTrustValue_DifferentSkillTypes_AreIndependent()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // PROPERTY: Skill types are independently scoped
         // 
-        // V⟨e⟩ngineering(agent) is computed from h⟨e⟩ngineering only
-        // V⟨d⟩esign(agent) is computed from h⟨d⟩esign only
+        // VâŸ¨eâŸ©ngineering(agent) is computed from hâŸ¨eâŸ©ngineering only
+        // VâŸ¨dâŸ©esign(agent) is computed from hâŸ¨dâŸ©esign only
         // 
         // Jane's example from whitepaper:
-        //   V⟨e⟩ngineering = 85 cutes (thriving)
-        //   V⟨d⟩esign = -12 cutes (struggling)
-        // ═══════════════════════════════════════════════════════════════
+        //   VâŸ¨eâŸ©ngineering = 85 cutes (thriving)
+        //   VâŸ¨dâŸ©esign = -12 cutes (struggling)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE: Two separate histories
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         
-        // Engineering contracts (10 successes × weight 8.5)
+        // Engineering contracts (10 successes Ã— weight 8.5)
         for (int i = 0; i < 10; i++)
             agent.AddToHistory(ContractFactory.CreateSimple(SkillTypes.Engineering, outcome: 1.0, weight: 8.5));
         
-        // Design contracts (5 failures × weight 2.4)
+        // Design contracts (5 failures Ã— weight 2.4)
         for (int i = 0; i < 5; i++)
             agent.AddToHistory(ContractFactory.CreateSimple(SkillTypes.Design, outcome: -1.0, weight: 2.4));
 
-        var expectedEngineering = 85.0;  // 10 × 8.5 × 1.0
-        var expectedDesign = -12.0;       // 5 × 2.4 × (-1.0)
+        var expectedEngineering = 85.0;  // 10 Ã— 8.5 Ã— 1.0
+        var expectedDesign = -12.0;       // 5 Ã— 2.4 Ã— (-1.0)
 
         // ACT
         var actualEngineering = agent.ComputeTrustValue(SkillTypes.Engineering);
@@ -256,12 +261,12 @@ public class AgentTrustValueTests
     [Fact]
     public void ComputeTrustValue_InvalidSkillType_ReturnsZero()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // EDGE CASE: Invalid skill type input
         // 
-        // V⟨t⟩(agent, null) = 0
-        // V⟨t⟩(agent, "") = 0
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(agent, null) = 0
+        // VâŸ¨tâŸ©(agent, "") = 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -285,11 +290,11 @@ public class AgentTrustValueTests
         double weight, 
         double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩ = ω(c) · outcome(c)  when |h⟨t⟩| = 1
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ© = Ï‰(c) Â· outcome(c)  when |hâŸ¨tâŸ©| = 1
         // 
         // This is the fundamental multiplication at the heart of trust.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -315,9 +320,9 @@ Tests for DAO trust aggregation.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  V⟨t⟩(DAO(S)) = Φ({V⟨t⟩(q) : q ∈ S})                                 │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  VâŸ¨tâŸ©(DAO(S)) = Î¦({VâŸ¨tâŸ©(q) : q âˆˆ S})                                 â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -326,28 +331,28 @@ Tests for DAO trust aggregation.
 /// Tests for DAO trust aggregation.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  V⟨t⟩(DAO(S)) = Φ({V⟨t⟩(q) : q ∈ S})                                 │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  VâŸ¨tâŸ©(DAO(S)) = Î¦({VâŸ¨tâŸ©(q) : q âˆˆ S})                                 â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// Where:
 ///   S   = Set of member entities (Agents or DAOs)
-///   Φ   = Aggregation function (sum, avg, min, max, etc.)
-///   q   = A member entity (q ∈ S)
+///   Î¦   = Aggregation function (sum, avg, min, max, etc.)
+///   q   = A member entity (q âˆˆ S)
 /// 
-/// Recursive property: A DAO is itself a q⟨T⟩, enabling:
-///   q⟨T⟩ ::= Agent(t, h⟨t⟩) | DAO({q⟨T⟩})
+/// Recursive property: A DAO is itself a qâŸ¨TâŸ©, enabling:
+///   qâŸ¨TâŸ© ::= Agent(t, hâŸ¨tâŸ©) | DAO({qâŸ¨TâŸ©})
 /// </summary>
 public class DAOTrustAggregationTests
 {
     [Fact]
     public void ComputeTrustValue_EmptyDAO_ReturnsZero()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩(DAO(∅)) = Φ(∅) = 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©(DAO(âˆ…)) = Î¦(âˆ…) = 0
         // 
         // All aggregation functions return 0 for empty sets.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var dao = new DAO
@@ -366,18 +371,18 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithSumAggregation_ReturnsTotalCapability()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_sum({V, V₂, V₃}) = V + V₂ + V₃
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_sum({V, Vâ‚‚, Vâ‚ƒ}) = V + Vâ‚‚ + Vâ‚ƒ
         // 
         // Sum represents total combined capability.
         // 
         // Members:
-        //   Agent: V⟨t⟩ = 10.0
-        //   Agent₂: V⟨t⟩ = 20.0
-        //   Agent₃: V⟨t⟩ = 30.0
+        //   Agent: VâŸ¨tâŸ© = 10.0
+        //   Agentâ‚‚: VâŸ¨tâŸ© = 20.0
+        //   Agentâ‚ƒ: VâŸ¨tâŸ© = 30.0
         // 
-        // V⟨t⟩(DAO) = 10 + 20 + 30 = 60
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(DAO) = 10 + 20 + 30 = 60
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 10.0, 20.0, 30.0 });
@@ -399,14 +404,14 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithAverageAggregation_ReturnsMeanReliability()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_avg({V, V₂, V₃}) = (V + V₂ + V₃) / 3
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_avg({V, Vâ‚‚, Vâ‚ƒ}) = (V + Vâ‚‚ + Vâ‚ƒ) / 3
         // 
         // Average represents mean reliability of members.
         // 
         // Members: {10.0, 20.0, 30.0}
-        // V⟨t⟩(DAO) = (10 + 20 + 30) / 3 = 20
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(DAO) = (10 + 20 + 30) / 3 = 20
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 10.0, 20.0, 30.0 });
@@ -428,15 +433,15 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithMinimumAggregation_ReturnsWeakestLink()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_min({V, V₂, V₃}) = min(V, V₂, V₃)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_min({V, Vâ‚‚, Vâ‚ƒ}) = min(V, Vâ‚‚, Vâ‚ƒ)
         // 
         // Minimum represents "weakest link" analysis.
         // Use case: Security-focused DAO (only as strong as weakest member)
         // 
         // Members: {10.0, 5.0, 30.0}
-        // V⟨t⟩(DAO) = min(10, 5, 30) = 5
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(DAO) = min(10, 5, 30) = 5
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 10.0, 5.0, 30.0 });
@@ -458,14 +463,14 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithMaximumAggregation_ReturnsStrongestMember()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_max({V, V₂, V₃}) = max(V, V₂, V₃)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_max({V, Vâ‚‚, Vâ‚ƒ}) = max(V, Vâ‚‚, Vâ‚ƒ)
         // 
         // Maximum represents "strongest member" capability.
         // 
         // Members: {10.0, 5.0, 30.0}
-        // V⟨t⟩(DAO) = max(10, 5, 30) = 30
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(DAO) = max(10, 5, 30) = 30
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 10.0, 5.0, 30.0 });
@@ -487,14 +492,14 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithMedianAggregation_ReturnsMiddleValue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_median({V, V₂, ..., Vₙ}) = middle value when sorted
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_median({V, Vâ‚‚, ..., Vâ‚™}) = middle value when sorted
         // 
         // Median is robust to outliers.
         // 
         // Members: {5.0, 10.0, 100.0} (sorted)
-        // V⟨t⟩(DAO) = median = 10.0
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(DAO) = median = 10.0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 100.0, 5.0, 10.0 });  // Unsorted
@@ -516,22 +521,22 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_NestedDAOs_ComputesRecursively()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // RECURSIVE PROPERTY: q⟨T⟩ ::= Agent | DAO({q⟨T⟩})
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // RECURSIVE PROPERTY: qâŸ¨TâŸ© ::= Agent | DAO({qâŸ¨TâŸ©})
         // 
         // "Turtles all the way down" - DAOs can contain DAOs.
         // 
         // Structure:
-        //   OuterDAO (Φ = sum)
-        //   ├── Agent: V⟨t⟩ = 10.0
-        //   └── InnerDAO (Φ = average)
-        //       ├── Agent₂: V⟨t⟩ = 20.0
-        //       └── Agent₃: V⟨t⟩ = 40.0
+        //   OuterDAO (Î¦ = sum)
+        //   â”œâ”€â”€ Agent: VâŸ¨tâŸ© = 10.0
+        //   â””â”€â”€ InnerDAO (Î¦ = average)
+        //       â”œâ”€â”€ Agentâ‚‚: VâŸ¨tâŸ© = 20.0
+        //       â””â”€â”€ Agentâ‚ƒ: VâŸ¨tâŸ© = 40.0
         // 
         // Calculation:
-        //   V⟨t⟩(InnerDAO) = avg(20, 40) = 30
-        //   V⟨t⟩(OuterDAO) = sum(10, 30) = 40
-        // ═══════════════════════════════════════════════════════════════
+        //   VâŸ¨tâŸ©(InnerDAO) = avg(20, 40) = 30
+        //   VâŸ¨tâŸ©(OuterDAO) = sum(10, 30) = 40
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent1 = CreateAgentWithTrust(10.0);
@@ -562,14 +567,14 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithNegativeTrust_HandlesCorrectly()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // PROPERTY: V⟨t⟩ ∈  (can be negative)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // PROPERTY: VâŸ¨tâŸ© âˆˆ  (can be negative)
         // 
         // DAOs can have members with negative trust (distrusted).
         // 
         // Members: {10.0, -5.0, 20.0}
-        // Φ_sum = 10 + (-5) + 20 = 25
-        // ═══════════════════════════════════════════════════════════════
+        // Î¦_sum = 10 + (-5) + 20 = 25
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agents = CreateAgentsWithTrust(new[] { 10.0, -5.0, 20.0 });
@@ -591,9 +596,9 @@ public class DAOTrustAggregationTests
     [Fact]
     public void ComputeTrustValue_WithoutPhi_ThrowsInvalidOperation()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: Φ must be defined before computing trust
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: Î¦ must be defined before computing trust
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var dao = new DAO
@@ -633,39 +638,39 @@ public class DAOTrustAggregationTests
 
 ## 3. Aggregation Functions Tests
 
-Tests for aggregation functions Φ.
+Tests for aggregation functions Î¦.
 
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  Φ: {} →                                                         │
-│                                                                     │
-│  Φ_sum({x, ..., xₙ}) = Σᵢ xᵢ                                      │
-│  Φ_avg({x, ..., xₙ}) = (Σᵢ xᵢ) / n                                │
-│  Φ_min({x, ..., xₙ}) = min(x, ..., xₙ)                           │
-│  Φ_max({x, ..., xₙ}) = max(x, ..., xₙ)                           │
-│  Φ_median = middle value when sorted                                │
-│  Φ_weighted({x,...,xₙ}, {w,...,wₙ}) = (Σᵢ xᵢwᵢ) / (Σᵢ wᵢ)       │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  Î¦: {} â†’                                                         â”‚
+â”‚                                                                     â”‚
+â”‚  Î¦_sum({x, ..., xâ‚™}) = Î£áµ¢ xáµ¢                                      â”‚
+â”‚  Î¦_avg({x, ..., xâ‚™}) = (Î£áµ¢ xáµ¢) / n                                â”‚
+â”‚  Î¦_min({x, ..., xâ‚™}) = min(x, ..., xâ‚™)                           â”‚
+â”‚  Î¦_max({x, ..., xâ‚™}) = max(x, ..., xâ‚™)                           â”‚
+â”‚  Î¦_median = middle value when sorted                                â”‚
+â”‚  Î¦_weighted({x,...,xâ‚™}, {w,...,wâ‚™}) = (Î£áµ¢ xáµ¢wáµ¢) / (Î£áµ¢ wáµ¢)       â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
 
 /// <summary>
-/// Tests for aggregation functions Φ.
+/// Tests for aggregation functions Î¦.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  Φ: {} →                                                         │
-/// │                                                                     │
-/// │  Φ_sum({x, ..., xₙ}) = Σᵢ xᵢ                                      │
-/// │  Φ_avg({x, ..., xₙ}) = (Σᵢ xᵢ) / n                                │
-/// │  Φ_min({x, ..., xₙ}) = min(x, ..., xₙ)                           │
-/// │  Φ_max({x, ..., xₙ}) = max(x, ..., xₙ)                           │
-/// │  Φ_median = middle value when sorted                                │
-/// │  Φ_weighted({x,...,xₙ}, {w,...,wₙ}) = (Σᵢ xᵢwᵢ) / (Σᵢ wᵢ)       │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  Î¦: {} â†’                                                         â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Î¦_sum({x, ..., xâ‚™}) = Î£áµ¢ xáµ¢                                      â”‚
+/// â”‚  Î¦_avg({x, ..., xâ‚™}) = (Î£áµ¢ xáµ¢) / n                                â”‚
+/// â”‚  Î¦_min({x, ..., xâ‚™}) = min(x, ..., xâ‚™)                           â”‚
+/// â”‚  Î¦_max({x, ..., xâ‚™}) = max(x, ..., xâ‚™)                           â”‚
+/// â”‚  Î¦_median = middle value when sorted                                â”‚
+/// â”‚  Î¦_weighted({x,...,xâ‚™}, {w,...,wâ‚™}) = (Î£áµ¢ xáµ¢wáµ¢) / (Î£áµ¢ wáµ¢)       â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// </summary>
 public class AggregationFunctionsTests
 {
@@ -676,9 +681,9 @@ public class AggregationFunctionsTests
     [InlineData(new double[] { -1.0, 2.0, -3.0 }, -2.0)]
     public void Sum_ReturnsCorrectTotal(double[] values, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_sum = Σᵢ xᵢ
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_sum = Î£áµ¢ xáµ¢
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = AggregationFunctions.Sum(values);
@@ -694,9 +699,9 @@ public class AggregationFunctionsTests
     [InlineData(new double[] { -2.0, 4.0 }, 1.0)]
     public void Average_ReturnsMean(double[] values, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_avg = (Σᵢ xᵢ) / n
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_avg = (Î£áµ¢ xáµ¢) / n
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = AggregationFunctions.Average(values);
@@ -712,9 +717,9 @@ public class AggregationFunctionsTests
     [InlineData(new double[] { -3.0, -1.0, -4.0 }, -4.0)]
     public void Minimum_ReturnsSmallestValue(double[] values, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_min = min(x, ..., xₙ)
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_min = min(x, ..., xâ‚™)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = AggregationFunctions.Minimum(values);
@@ -730,9 +735,9 @@ public class AggregationFunctionsTests
     [InlineData(new double[] { -3.0, -1.0, -4.0 }, -1.0)]
     public void Maximum_ReturnsLargestValue(double[] values, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_max = max(x, ..., xₙ)
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_max = max(x, ..., xâ‚™)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = AggregationFunctions.Maximum(values);
@@ -749,12 +754,12 @@ public class AggregationFunctionsTests
     [InlineData(new double[] { 100.0, 1.0, 2.0 }, 2.0)]          // Outlier handling
     public void Median_ReturnsMiddleValue(double[] values, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_median = middle value when sorted
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_median = middle value when sorted
         // 
         // For even n: average of two middle values
         // For odd n: the middle value
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = AggregationFunctions.Median(values);
@@ -766,17 +771,17 @@ public class AggregationFunctionsTests
     [Fact]
     public void WeightedAverage_ReturnsCorrectValue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Φ_weighted = (Σᵢ xᵢwᵢ) / (Σᵢ wᵢ)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¦_weighted = (Î£áµ¢ xáµ¢wáµ¢) / (Î£áµ¢ wáµ¢)
         // 
         // values:  {10, 20, 30}
         // weights: {1,  2,  3}
         // 
-        // = (10×1 + 20×2 + 30×3) / (1 + 2 + 3)
+        // = (10Ã—1 + 20Ã—2 + 30Ã—3) / (1 + 2 + 3)
         // = (10 + 40 + 90) / 6
         // = 140 / 6
-        // ≈ 23.333...
-        // ═══════════════════════════════════════════════════════════════
+        // â‰ˆ 23.333...
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var values = new[] { 10.0, 20.0, 30.0 };
@@ -793,9 +798,9 @@ public class AggregationFunctionsTests
     [Fact]
     public void WeightedAverage_WithZeroTotalWeight_ReturnsZero()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EDGE CASE: Σᵢ wᵢ = 0 → undefined, return 0
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EDGE CASE: Î£áµ¢ wáµ¢ = 0 â†’ undefined, return 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var values = new[] { 10.0, 20.0 };
@@ -811,9 +816,9 @@ public class AggregationFunctionsTests
     [Fact]
     public void AllFunctions_HandleNullGracefully()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EDGE CASE: null input → return 0
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EDGE CASE: null input â†’ return 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Equal(0.0, AggregationFunctions.Sum(null!));
         Assert.Equal(0.0, AggregationFunctions.Average(null!));
@@ -835,11 +840,11 @@ Tests for the outcome function.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  outcome(c) ∈ [-1, 1]                                              │
-│                                                                     │
-│  Discrete special case: {-1, 0, 1} = {failure, partial, success}   │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  outcome(c) âˆˆ [-1, 1]                                              â”‚
+â”‚                                                                     â”‚
+â”‚  Discrete special case: {-1, 0, 1} = {failure, partial, success}   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -848,11 +853,11 @@ Tests for the outcome function.
 /// Tests for the outcome function.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  outcome(c) ∈ [-1, 1]                                              │
-/// │                                                                     │
-/// │  Discrete special case: {-1, 0, 1} = {failure, partial, success}   │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  outcome(c) âˆˆ [-1, 1]                                              â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Discrete special case: {-1, 0, 1} = {failure, partial, success}   â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// </summary>
 public class OutcomeFunctionTests
 {
@@ -864,9 +869,9 @@ public class OutcomeFunctionTests
     [InlineData(1.0)]
     public void ValidateOutcome_AcceptsValidRange(double outcome)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: outcome(c) ∈ [-1, 1]
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: outcome(c) âˆˆ [-1, 1]
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT & ASSERT: Should not throw
         var result = OutcomeCalculator.ValidateOutcome(outcome);
@@ -880,9 +885,9 @@ public class OutcomeFunctionTests
     [InlineData(100)]
     public void ValidateOutcome_RejectsInvalidRange(double outcome)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: outcome(c) ∉ [-1, 1] → throw
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: outcome(c) âˆ‰ [-1, 1] â†’ throw
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT & ASSERT
         Assert.Throws<ArgumentOutOfRangeException>(() => 
@@ -895,9 +900,9 @@ public class OutcomeFunctionTests
     [InlineData(DiscreteOutcome.Success, 1.0)]
     public void FromDiscrete_ConvertsCorrectly(DiscreteOutcome discrete, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // DISCRETE CASE: {-1, 0, 1} = {failure, partial, success}
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = OutcomeCalculator.FromDiscrete(discrete);
@@ -907,22 +912,22 @@ public class OutcomeFunctionTests
     }
 
     [Theory]
-    [InlineData(1.0, 1.0, 1.0)]      // 100% complete, 100% quality → +1
-    [InlineData(0.0, 0.0, -1.0)]     // 0% complete, 0% quality → -1
-    [InlineData(0.5, 0.5, 0.0)]      // 50% each → 0 (neutral)
-    [InlineData(1.0, 0.0, 0.0)]      // Complete but bad quality → 0
-    [InlineData(0.75, 0.75, 0.5)]    // 75% each → +0.5
+    [InlineData(1.0, 1.0, 1.0)]      // 100% complete, 100% quality â†’ +1
+    [InlineData(0.0, 0.0, -1.0)]     // 0% complete, 0% quality â†’ -1
+    [InlineData(0.5, 0.5, 0.0)]      // 50% each â†’ 0 (neutral)
+    [InlineData(1.0, 0.0, 0.0)]      // Complete but bad quality â†’ 0
+    [InlineData(0.75, 0.75, 0.5)]    // 75% each â†’ +0.5
     public void CalculatePartialOutcome_MapsCorrectly(
         double completion, 
         double quality, 
         double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // MAPPING: [0,1] × [0,1] → [-1,1]
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // MAPPING: [0,1] Ã— [0,1] â†’ [-1,1]
         // 
-        // Formula: outcome = ((completion + quality) / 2) × 2 - 1
+        // Formula: outcome = ((completion + quality) / 2) Ã— 2 - 1
         //        = (completion + quality) - 1
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = OutcomeCalculator.CalculatePartialOutcome(completion, quality);
@@ -938,9 +943,9 @@ public class OutcomeFunctionTests
     [InlineData(0.5, 1.1)]
     public void CalculatePartialOutcome_RejectsInvalidInputs(double completion, double quality)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: completion, quality ∈ [0, 1]
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: completion, quality âˆˆ [0, 1]
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT & ASSERT
         Assert.Throws<ArgumentOutOfRangeException>(() => 
@@ -953,9 +958,9 @@ public class OutcomeFunctionTests
     [InlineData(0.5, 0.5)]
     public void Clamp_ConstrainsToValidRange(double input, double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // UTILITY: Clamp any value to [-1, 1]
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = OutcomeCalculator.Clamp(input);
@@ -971,41 +976,41 @@ public class OutcomeFunctionTests
 
 ## 5. Weighting Function Tests
 
-Tests for the weighting function ω.
+Tests for the weighting function Ï‰.
 
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  ω(c) = f(s(c), d(c), V⟨t⟩(a_consumer), recency(c))                 │
-│                                                                     │
-│  Components:                                                        │
-│    stake_weight       = ln(1 + s)           [logarithmic]          │
-│    difficulty_weight  = 0.5 + (d/10) × 1.5  [linear, 0.5 to 2.0]   │
-│    counterparty_weight= 1 + tanh(V⟨t⟩/100) × 0.5  [sigmoid, 0.5-1.5]│
-│    recency_weight     = 0.5^(days/365)      [exponential decay]    │
-│                                                                     │
-│  ω = stake × difficulty × counterparty × recency                   │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  Ï‰(c) = f(s(c), d(c), VâŸ¨tâŸ©(a_consumer), recency(c))                 â”‚
+â”‚                                                                     â”‚
+â”‚  Components:                                                        â”‚
+â”‚    stake_weight       = ln(1 + s)           [logarithmic]          â”‚
+â”‚    difficulty_weight  = 0.5 + (d/10) Ã— 1.5  [linear, 0.5 to 2.0]   â”‚
+â”‚    counterparty_weight= 1 + tanh(VâŸ¨tâŸ©/100) Ã— 0.5  [sigmoid, 0.5-1.5]â”‚
+â”‚    recency_weight     = 0.5^(days/365)      [exponential decay]    â”‚
+â”‚                                                                     â”‚
+â”‚  Ï‰ = stake Ã— difficulty Ã— counterparty Ã— recency                   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
 
 /// <summary>
-/// Tests for the weighting function ω.
+/// Tests for the weighting function Ï‰.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  ω(c) = f(s(c), d(c), V⟨t⟩(a_consumer), recency(c))                 │
-/// │                                                                     │
-/// │  Components:                                                        │
-/// │    stake_weight       = ln(1 + s)           [logarithmic]          │
-/// │    difficulty_weight  = 0.5 + (d/10) × 1.5  [linear, 0.5 to 2.0]   │
-/// │    counterparty_weight= 1 + tanh(V⟨t⟩/100) × 0.5  [sigmoid, 0.5-1.5]│
-/// │    recency_weight     = 0.5^(days/365)      [exponential decay]    │
-/// │                                                                     │
-/// │  ω = stake × difficulty × counterparty × recency                   │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  Ï‰(c) = f(s(c), d(c), VâŸ¨tâŸ©(a_consumer), recency(c))                 â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Components:                                                        â”‚
+/// â”‚    stake_weight       = ln(1 + s)           [logarithmic]          â”‚
+/// â”‚    difficulty_weight  = 0.5 + (d/10) Ã— 1.5  [linear, 0.5 to 2.0]   â”‚
+/// â”‚    counterparty_weight= 1 + tanh(VâŸ¨tâŸ©/100) Ã— 0.5  [sigmoid, 0.5-1.5]â”‚
+/// â”‚    recency_weight     = 0.5^(days/365)      [exponential decay]    â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Ï‰ = stake Ã— difficulty Ã— counterparty Ã— recency                   â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// </summary>
 public class WeightingFunctionTests
 {
@@ -1014,16 +1019,16 @@ public class WeightingFunctionTests
 
     [Theory]
     [InlineData(0, 0.0)]                    // ln(1 + 0) = ln(1) = 0
-    [InlineData(1, 0.693147)]               // ln(1 + 1) = ln(2) ≈ 0.693
-    [InlineData(100, 4.615120)]             // ln(101) ≈ 4.615
-    [InlineData(10000, 9.210440)]           // ln(10001) ≈ 9.210
+    [InlineData(1, 0.693147)]               // ln(1 + 1) = ln(2) â‰ˆ 0.693
+    [InlineData(100, 4.615120)]             // ln(101) â‰ˆ 4.615
+    [InlineData(10000, 9.210440)]           // ln(10001) â‰ˆ 9.210
     public void StakeWeight_IsLogarithmic(double stake, double expectedLogComponent)
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // EQUATION: stake_weight = ln(1 + s)
         // 
         // Logarithmic scaling prevents high stakes from dominating.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var contract = ContractFactory.CreateSimple(
@@ -1038,26 +1043,26 @@ public class WeightingFunctionTests
         var weight = _calculator.ComputeWeight(contract, 0, _now);
 
         // ASSERT: Weight should be proportional to ln(1+stake)
-        // With d=5 → difficulty_weight ≈ 1.25, counterparty=1.0, recency=1.0
-        // So weight ≈ ln(1+s) × 1.25 × 1.0 × 1.0
+        // With d=5 â†’ difficulty_weight â‰ˆ 1.25, counterparty=1.0, recency=1.0
+        // So weight â‰ˆ ln(1+s) Ã— 1.25 Ã— 1.0 Ã— 1.0
         var expectedWeight = expectedLogComponent * 1.25 * 1.0 * 1.0;
         Assert.Equal(Math.Max(expectedWeight, TrustConstants.MinWeight), weight, precision: 3);
     }
 
     [Theory]
-    [InlineData(0, 0.5)]     // d=0  → 0.5 + 0.0 × 1.5 = 0.5
-    [InlineData(5, 1.25)]    // d=5  → 0.5 + 0.5 × 1.5 = 1.25
-    [InlineData(10, 2.0)]    // d=10 → 0.5 + 1.0 × 1.5 = 2.0
+    [InlineData(0, 0.5)]     // d=0  â†’ 0.5 + 0.0 Ã— 1.5 = 0.5
+    [InlineData(5, 1.25)]    // d=5  â†’ 0.5 + 0.5 Ã— 1.5 = 1.25
+    [InlineData(10, 2.0)]    // d=10 â†’ 0.5 + 1.0 Ã— 1.5 = 2.0
     public void DifficultyWeight_IsLinear(double difficulty, double expectedDiffWeight)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: difficulty_weight = 0.5 + (d/10) × 1.5
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: difficulty_weight = 0.5 + (d/10) Ã— 1.5
         // 
         // Maps difficulty [0,10] to weight [0.5, 2.0]
         // Higher difficulty = more signal
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: Fixed stake=100 → ln(101) ≈ 4.615
+        // ARRANGE: Fixed stake=100 â†’ ln(101) â‰ˆ 4.615
         var contract = ContractFactory.CreateSimple(
             skillType: SkillTypes.Engineering,
             outcome: 0,
@@ -1075,19 +1080,19 @@ public class WeightingFunctionTests
     }
 
     [Theory]
-    [InlineData(0, 1.0)]           // V⟨t⟩=0 → tanh(0)=0 → 1 + 0×0.5 = 1.0
-    [InlineData(100, 1.38)]        // V⟨t⟩=100 → tanh(1)≈0.76 → 1 + 0.76×0.5 ≈ 1.38
-    [InlineData(-100, 0.62)]       // V⟨t⟩=-100 → tanh(-1)≈-0.76 → 1 - 0.76×0.5 ≈ 0.62
-    [InlineData(1000, 1.5)]        // V⟨t⟩=1000 → tanh(10)≈1 → 1 + 1×0.5 = 1.5 (max)
+    [InlineData(0, 1.0)]           // VâŸ¨tâŸ©=0 â†’ tanh(0)=0 â†’ 1 + 0Ã—0.5 = 1.0
+    [InlineData(100, 1.38)]        // VâŸ¨tâŸ©=100 â†’ tanh(1)â‰ˆ0.76 â†’ 1 + 0.76Ã—0.5 â‰ˆ 1.38
+    [InlineData(-100, 0.62)]       // VâŸ¨tâŸ©=-100 â†’ tanh(-1)â‰ˆ-0.76 â†’ 1 - 0.76Ã—0.5 â‰ˆ 0.62
+    [InlineData(1000, 1.5)]        // VâŸ¨tâŸ©=1000 â†’ tanh(10)â‰ˆ1 â†’ 1 + 1Ã—0.5 = 1.5 (max)
     public void CounterpartyWeight_IsSigmoidBounded(double counterpartyTrust, double expectedCpWeight)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: counterparty_weight = 1 + tanh(V⟨t⟩/100) × 0.5
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: counterparty_weight = 1 + tanh(VâŸ¨tâŸ©/100) Ã— 0.5
         // 
         // Maps any trust value to [0.5, 1.5]
-        // High trust counterparty → more signal (up to 1.5×)
-        // Low trust counterparty → less signal (down to 0.5×)
-        // ═══════════════════════════════════════════════════════════════
+        // High trust counterparty â†’ more signal (up to 1.5Ã—)
+        // Low trust counterparty â†’ less signal (down to 0.5Ã—)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE: Fixed stake=100, difficulty=5
         var contract = ContractFactory.CreateSimple(
@@ -1101,24 +1106,24 @@ public class WeightingFunctionTests
         // ACT
         var weight = _calculator.ComputeWeight(contract, counterpartyTrust, _now);
 
-        // ASSERT: ln(101) × 1.25 × cpWeight × 1.0
+        // ASSERT: ln(101) Ã— 1.25 Ã— cpWeight Ã— 1.0
         var expectedWeight = Math.Log(101) * 1.25 * expectedCpWeight * 1.0;
         Assert.Equal(expectedWeight, weight, precision: 1);
     }
 
     [Theory]
-    [InlineData(0, 1.0)]           // Today → 0.5^0 = 1.0
-    [InlineData(365, 0.5)]         // 1 year ago → 0.5^1 = 0.5
-    [InlineData(730, 0.25)]        // 2 years ago → 0.5^2 = 0.25
-    [InlineData(1095, 0.125)]      // 3 years ago → 0.5^3 = 0.125
+    [InlineData(0, 1.0)]           // Today â†’ 0.5^0 = 1.0
+    [InlineData(365, 0.5)]         // 1 year ago â†’ 0.5^1 = 0.5
+    [InlineData(730, 0.25)]        // 2 years ago â†’ 0.5^2 = 0.25
+    [InlineData(1095, 0.125)]      // 3 years ago â†’ 0.5^3 = 0.125
     public void RecencyWeight_DecaysExponentially(int daysAgo, double expectedRecencyWeight)
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // EQUATION: recency_weight = 0.5^(days/365)
         // 
         // Half-life of 365 days.
         // Contract from 1 year ago contributes half as much as today's.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var completedAt = _now.AddDays(-daysAgo);
@@ -1135,7 +1140,7 @@ public class WeightingFunctionTests
         // ACT
         var weight = _calculator.ComputeWeight(contract, 0, _now);
 
-        // ASSERT: ln(101) × 1.25 × 1.0 × recency
+        // ASSERT: ln(101) Ã— 1.25 Ã— 1.0 Ã— recency
         var expectedWeight = Math.Log(101) * 1.25 * 1.0 * expectedRecencyWeight;
         Assert.Equal(expectedWeight, weight, precision: 2);
     }
@@ -1143,9 +1148,9 @@ public class WeightingFunctionTests
     [Fact]
     public void ComputeWeight_NullContract_Throws()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // CONSTRAINT: Contract cannot be null
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Throws<ArgumentNullException>(() => 
             _calculator.ComputeWeight(null!, 0, _now));
@@ -1154,9 +1159,9 @@ public class WeightingFunctionTests
     [Fact]
     public void ComputeWeight_ReturnsAtLeastMinWeight()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: ω(c) ≥ MinWeight (for numerical stability)
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: Ï‰(c) â‰¥ MinWeight (for numerical stability)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE: Zero stake, zero difficulty, very old
         var contract = new Contract
@@ -1188,9 +1193,9 @@ Tests for history evolution.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  h⟨t⟩^(n+1)(a) = h⟨t⟩^(n)(a) ∪ {c⟨n⟩}                                 │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  hâŸ¨tâŸ©^(n+1)(a) = hâŸ¨tâŸ©^(n)(a) âˆª {câŸ¨nâŸ©}                                 â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -1199,9 +1204,9 @@ Tests for history evolution.
 /// Tests for history evolution.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  h⟨t⟩^(n+1)(a) = h⟨t⟩^(n)(a) ∪ {c⟨n⟩}                                 │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  hâŸ¨tâŸ©^(n+1)(a) = hâŸ¨tâŸ©^(n)(a) âˆª {câŸ¨nâŸ©}                                 â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// The history grows by adding completed contracts.
 /// History is append-only and partitioned by skill type.
@@ -1211,17 +1216,17 @@ public class HistoryEvolutionTests
     [Fact]
     public void AddToHistory_AppendsContract()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: h⟨t⟩^(n+1) = h⟨t⟩^(n) ∪ {c⟨n⟩}
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: hâŸ¨tâŸ©^(n+1) = hâŸ¨tâŸ©^(n) âˆª {câŸ¨nâŸ©}
         // 
         // Union operation: Add new contract to existing history.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: h⟨t⟩^(0) = ∅
+        // ARRANGE: hâŸ¨tâŸ©^(0) = âˆ…
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         Assert.Empty(agent.ContractHistory);
 
-        // ACT: h⟨t⟩^(1) = h⟨t⟩^(0) ∪ {c}
+        // ACT: hâŸ¨tâŸ©^(1) = hâŸ¨tâŸ©^(0) âˆª {c}
         var c1 = ContractFactory.CreateSimple(SkillTypes.Engineering, 1.0, 1.0);
         agent.AddToHistory(c1);
 
@@ -1233,11 +1238,11 @@ public class HistoryEvolutionTests
     [Fact]
     public void AddToHistory_PreservesOrder()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // PROPERTY: History maintains insertion order
         // 
-        // h⟨t⟩ = {c, c₂, c₃} in order of completion
-        // ═══════════════════════════════════════════════════════════════
+        // hâŸ¨tâŸ© = {c, câ‚‚, câ‚ƒ} in order of completion
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1258,9 +1263,9 @@ public class HistoryEvolutionTests
     [Fact]
     public void AddToHistory_NullContract_Throws()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // CONSTRAINT: Cannot add null contract
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         var agent = new Agent { SkillType = SkillTypes.Engineering };
         Assert.Throws<ArgumentNullException>(() => agent.AddToHistory(null!));
@@ -1269,11 +1274,11 @@ public class HistoryEvolutionTests
     [Fact]
     public void GetHistoryForSkill_FiltersCorrectly()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // PROPERTY: History is partitioned by skill type
         // 
-        // h⟨e⟩ngineering ∩ h⟨d⟩esign = ∅ (disjoint sets)
-        // ═══════════════════════════════════════════════════════════════
+        // hâŸ¨eâŸ©ngineering âˆ© hâŸ¨dâŸ©esign = âˆ… (disjoint sets)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1293,9 +1298,9 @@ public class HistoryEvolutionTests
     [Fact]
     public void ContractCountForSkill_ReturnsCorrectCount()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: |h⟨t⟩| = number of contracts for skill type t
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: |hâŸ¨tâŸ©| = number of contracts for skill type t
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1322,9 +1327,9 @@ Tests for incremental trust evolution.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  V⟨t⟩^(n+1)(a) = V⟨t⟩^(n)(a) + ω(c⟨n⟩) · outcome(c⟨n⟩)                 │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  VâŸ¨tâŸ©^(n+1)(a) = VâŸ¨tâŸ©^(n)(a) + Ï‰(câŸ¨nâŸ©) Â· outcome(câŸ¨nâŸ©)                 â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -1333,9 +1338,9 @@ Tests for incremental trust evolution.
 /// Tests for incremental trust evolution.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  V⟨t⟩^(n+1)(a) = V⟨t⟩^(n)(a) + ω(c⟨n⟩) · outcome(c⟨n⟩)                 │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  VâŸ¨tâŸ©^(n+1)(a) = VâŸ¨tâŸ©^(n)(a) + Ï‰(câŸ¨nâŸ©) Â· outcome(câŸ¨nâŸ©)                 â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// Trust updates incrementally with each contract completion.
 /// </summary>
@@ -1344,12 +1349,12 @@ public class TrustEvolutionTests
     [Fact]
     public void UpdateTrust_AddsWeightedOutcome()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩^(n+1) = V⟨t⟩^(n) + ω(c⟨n⟩) · outcome(c⟨n⟩)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©^(n+1) = VâŸ¨tâŸ©^(n) + Ï‰(câŸ¨nâŸ©) Â· outcome(câŸ¨nâŸ©)
         // 
-        // Starting from V⟨t⟩^(0) = 0:
-        //   V⟨t⟩^(1) = 0 + (2.0 × 1.0) = 2.0
-        // ═══════════════════════════════════════════════════════════════
+        // Starting from VâŸ¨tâŸ©^(0) = 0:
+        //   VâŸ¨tâŸ©^(1) = 0 + (2.0 Ã— 1.0) = 2.0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var tracker = new TrustTracker();
@@ -1372,14 +1377,14 @@ public class TrustEvolutionTests
     [Fact]
     public void UpdateTrust_AccumulatesOverMultipleContracts()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩^(n) = Σ_{i=1}^{n} ω(cᵢ) · outcome(cᵢ)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©^(n) = Î£_{i=1}^{n} Ï‰(cáµ¢) Â· outcome(cáµ¢)
         // 
-        // V⟨t⟩^(0) = 0
-        // V⟨t⟩^(1) = 0 + (1.0 × 1.0) = 1.0
-        // V⟨t⟩^(2) = 1.0 + (2.0 × 0.5) = 2.0
-        // V⟨t⟩^(3) = 2.0 + (1.5 × -1.0) = 0.5
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©^(0) = 0
+        // VâŸ¨tâŸ©^(1) = 0 + (1.0 Ã— 1.0) = 1.0
+        // VâŸ¨tâŸ©^(2) = 1.0 + (2.0 Ã— 0.5) = 2.0
+        // VâŸ¨tâŸ©^(3) = 2.0 + (1.5 Ã— -1.0) = 0.5
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var tracker = new TrustTracker();
@@ -1405,9 +1410,9 @@ public class TrustEvolutionTests
     [Fact]
     public void UpdateTrust_CreatesAuditLog()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // PROPERTY: All trust changes are auditable
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var tracker = new TrustTracker();
@@ -1430,11 +1435,11 @@ public class TrustEvolutionTests
     [Fact]
     public void AddContractAndUpdateTrust_UpdatesBothHistoryAndTrust()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // COMBINED OPERATION:
-        //   h⟨t⟩^(n+1) = h⟨t⟩^(n) ∪ {c⟨n⟩}
-        //   V⟨t⟩^(n+1) = V⟨t⟩^(n) + ω(c⟨n⟩) · outcome(c⟨n⟩)
-        // ═══════════════════════════════════════════════════════════════
+        //   hâŸ¨tâŸ©^(n+1) = hâŸ¨tâŸ©^(n) âˆª {câŸ¨nâŸ©}
+        //   VâŸ¨tâŸ©^(n+1) = VâŸ¨tâŸ©^(n) + Ï‰(câŸ¨nâŸ©) Â· outcome(câŸ¨nâŸ©)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var tracker = new TrustTracker();
@@ -1463,11 +1468,11 @@ Tests for the eligibility function.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  eligible(a, c) ⟺ V⟨t⟩(a) ≥ θ(c)                                   │
-│                                                                     │
-│  θ(c) = max(ln(1+s) × 0.1, ln(1+s) × d)                            │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  eligible(a, c) âŸº VâŸ¨tâŸ©(a) â‰¥ Î¸(c)                                   â”‚
+â”‚                                                                     â”‚
+â”‚  Î¸(c) = max(ln(1+s) Ã— 0.1, ln(1+s) Ã— d)                            â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -1476,11 +1481,11 @@ Tests for the eligibility function.
 /// Tests for the eligibility function.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  eligible(a, c) ⟺ V⟨t⟩(a) ≥ θ(c)                                   │
-/// │                                                                     │
-/// │  θ(c) = max(ln(1+s) × 0.1, ln(1+s) × d)                            │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  eligible(a, c) âŸº VâŸ¨tâŸ©(a) â‰¥ Î¸(c)                                   â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Î¸(c) = max(ln(1+s) Ã— 0.1, ln(1+s) Ã— d)                            â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// An agent is eligible for a contract iff their trust meets the threshold.
 /// </summary>
@@ -1489,13 +1494,13 @@ public class EligibilityFunctionTests
     [Fact]
     public void IsEligible_TrustMeetsThreshold_ReturnsTrue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: eligible(a, c) ⟺ V⟨t⟩(a) ≥ θ(c)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: eligible(a, c) âŸº VâŸ¨tâŸ©(a) â‰¥ Î¸(c)
         // 
-        // V⟨t⟩(agent) = 50.0
-        // θ(contract) = ln(1+1000) × 5 ≈ 6.9 × 5 = 34.5
-        // 50.0 ≥ 34.5 → eligible = true
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(agent) = 50.0
+        // Î¸(contract) = ln(1+1000) Ã— 5 â‰ˆ 6.9 Ã— 5 = 34.5
+        // 50.0 â‰¥ 34.5 â†’ eligible = true
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1519,13 +1524,13 @@ public class EligibilityFunctionTests
     [Fact]
     public void IsEligible_TrustBelowThreshold_ReturnsFalse()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: ¬eligible(a, c) ⟺ V⟨t⟩(a) < θ(c)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Â¬eligible(a, c) âŸº VâŸ¨tâŸ©(a) < Î¸(c)
         // 
-        // V⟨t⟩(agent) = 10.0
-        // θ(contract) = ln(1+10000) × 8 ≈ 9.2 × 8 = 73.6
-        // 10.0 < 73.6 → eligible = false
-        // ═══════════════════════════════════════════════════════════════
+        // VâŸ¨tâŸ©(agent) = 10.0
+        // Î¸(contract) = ln(1+10000) Ã— 8 â‰ˆ 9.2 Ã— 8 = 73.6
+        // 10.0 < 73.6 â†’ eligible = false
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1547,21 +1552,21 @@ public class EligibilityFunctionTests
     }
 
     [Theory]
-    [InlineData(0, 0, 0.0)]                    // θ = max(0, 0) = 0
-    [InlineData(100, 0, 0.461)]                // θ = max(ln(101)×0.1, 0) ≈ 0.461
-    [InlineData(100, 5, 23.08)]                // θ = max(0.461, ln(101)×5) ≈ 23.08
-    [InlineData(1000, 3, 20.73)]               // θ = ln(1001)×3 ≈ 20.73
+    [InlineData(0, 0, 0.0)]                    // Î¸ = max(0, 0) = 0
+    [InlineData(100, 0, 0.461)]                // Î¸ = max(ln(101)Ã—0.1, 0) â‰ˆ 0.461
+    [InlineData(100, 5, 23.08)]                // Î¸ = max(0.461, ln(101)Ã—5) â‰ˆ 23.08
+    [InlineData(1000, 3, 20.73)]               // Î¸ = ln(1001)Ã—3 â‰ˆ 20.73
     public void CalculateThreshold_ReturnsCorrectValue(
         double stake, 
         double difficulty, 
         double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: θ(c) = max(ln(1+s) × 0.1, ln(1+s) × d)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Î¸(c) = max(ln(1+s) Ã— 0.1, ln(1+s) Ã— d)
         // 
         // The minimum threshold factor (0.1) ensures even zero-difficulty
         // contracts have some barrier to entry.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var contract = ContractFactory.CreateSimple(
@@ -1582,11 +1587,11 @@ public class EligibilityFunctionTests
     [Fact]
     public void IsEligible_ZeroTrustZeroThreshold_ReturnsTrue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EDGE CASE: V⟨t⟩ = 0, θ = 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EDGE CASE: VâŸ¨tâŸ© = 0, Î¸ = 0
         // 
-        // 0 ≥ 0 → true (newcomer can take zero-stake contracts)
-        // ═══════════════════════════════════════════════════════════════
+        // 0 â‰¥ 0 â†’ true (newcomer can take zero-stake contracts)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };  // No history
@@ -1603,11 +1608,11 @@ public class EligibilityFunctionTests
     [Fact]
     public void IsEligible_NegativeTrust_ReturnsFalse()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EDGE CASE: V⟨t⟩ < 0 (distrusted agent)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EDGE CASE: VâŸ¨tâŸ© < 0 (distrusted agent)
         // 
-        // -10 < any positive threshold → never eligible
-        // ═══════════════════════════════════════════════════════════════
+        // -10 < any positive threshold â†’ never eligible
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1626,9 +1631,9 @@ public class EligibilityFunctionTests
     [Fact]
     public void GetEligibleContracts_FiltersCorrectly()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // FILTER: {c : eligible(a, c)}
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE: Agent with trust = 30
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -1636,9 +1641,9 @@ public class EligibilityFunctionTests
 
         var contracts = new[]
         {
-            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 10, difficulty: 1),    // θ≈2.4, eligible
-            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 100, difficulty: 5),  // θ≈23, eligible
-            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 1000, difficulty: 8), // θ≈55, not eligible
+            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 10, difficulty: 1),    // Î¸â‰ˆ2.4, eligible
+            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 100, difficulty: 5),  // Î¸â‰ˆ23, eligible
+            ContractFactory.CreateSimple(SkillTypes.Engineering, 0, 0, stake: 1000, difficulty: 8), // Î¸â‰ˆ55, not eligible
         };
 
         // ACT
@@ -1660,9 +1665,9 @@ Tests for Sybil resistance properties.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  |h⟨t⟩(a_honest)| > |h⟨t⟩(a_sybil_i)|   ∀i                           │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  |hâŸ¨tâŸ©(a_honest)| > |hâŸ¨tâŸ©(a_sybil_i)|   âˆ€i                           â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -1671,9 +1676,9 @@ Tests for Sybil resistance properties.
 /// Tests for Sybil resistance properties.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  |h⟨t⟩(a_honest)| > |h⟨t⟩(a_sybil_i)|   ∀i                           │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  |hâŸ¨tâŸ©(a_honest)| > |hâŸ¨tâŸ©(a_sybil_i)|   âˆ€i                           â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// Splitting activity across k fake identities results in each having
 /// ~1/k the history of an honest single-identity agent.
@@ -1683,15 +1688,15 @@ public class SybilResistanceTests
     [Fact]
     public void AnalyzeSybilResistance_HonestHasMoreHistory()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: |h⟨t⟩(a_honest)| > |h⟨t⟩(a_sybil_i)|  ∀i
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: |hâŸ¨tâŸ©(a_honest)| > |hâŸ¨tâŸ©(a_sybil_i)|  âˆ€i
         // 
         // Scenario:
         //   Honest agent: 100 contracts
         //   Attacker splits across 5 sybils: 20 contracts each
         // 
-        // 100 > 20 for all sybils → Sybil resistant
-        // ═══════════════════════════════════════════════════════════════
+        // 100 > 20 for all sybils â†’ Sybil resistant
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var honest = new Agent { SkillType = SkillTypes.Engineering };
@@ -1721,15 +1726,15 @@ public class SybilResistanceTests
     [Fact]
     public void AnalyzeSybilResistance_HonestHasHigherTrust()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSEQUENCE: V⟨t⟩(honest) > V⟨t⟩(sybil_i)  ∀i
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSEQUENCE: VâŸ¨tâŸ©(honest) > VâŸ¨tâŸ©(sybil_i)  âˆ€i
         // 
-        // More history with same success rate → more trust
+        // More history with same success rate â†’ more trust
         // 
-        // V⟨t⟩(honest) = 100 × 1.0 × 1.0 = 100
-        // V⟨t⟩(sybil) = 20 × 1.0 × 1.0 = 20
+        // VâŸ¨tâŸ©(honest) = 100 Ã— 1.0 Ã— 1.0 = 100
+        // VâŸ¨tâŸ©(sybil) = 20 Ã— 1.0 Ã— 1.0 = 20
         // Advantage ratio = 100/20 = 5.0
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var honest = new Agent { SkillType = SkillTypes.Engineering };
@@ -1768,14 +1773,14 @@ public class SybilResistanceTests
         double maxSybilTrust, 
         double expected)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: advantage_ratio = V⟨t⟩(honest) / V⟨t⟩(best_sybil)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: advantage_ratio = VâŸ¨tâŸ©(honest) / VâŸ¨tâŸ©(best_sybil)
         // 
         // With special handling for:
         //   - Zero denominators
         //   - Negative trust values
         //   - Mixed signs
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ACT
         var actual = SybilResistanceAnalyzer.CalculateAdvantageRatio(honestTrust, maxSybilTrust);
@@ -1787,11 +1792,11 @@ public class SybilResistanceTests
     [Fact]
     public void AnalyzeSybilResistance_EmptySybilList_NotResistant()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // EDGE CASE: No sybils to compare against
         // 
         // Cannot claim "resistant" if there's no attack to resist.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var honest = new Agent { SkillType = SkillTypes.Engineering };
@@ -1817,9 +1822,9 @@ Tests for network validation through convergence.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  lim(n→∞) Corr(V⟨t⟩^(n)(a), R⟨t⟩(a)) = 1                             │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  lim(nâ†’âˆž) Corr(VâŸ¨tâŸ©^(n)(a), RâŸ¨tâŸ©(a)) = 1                             â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -1828,9 +1833,9 @@ Tests for network validation through convergence.
 /// Tests for network validation through convergence.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  lim(n→∞) Corr(V⟨t⟩^(n)(a), R⟨t⟩(a)) = 1                             │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  lim(nâ†’âˆž) Corr(VâŸ¨tâŸ©^(n)(a), RâŸ¨tâŸ©(a)) = 1                             â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// 
 /// As history accumulates, the correlation between computed trust
 /// and actual reliability should approach 1.0.
@@ -1840,16 +1845,16 @@ public class ConvergenceCriterionTests
     [Fact]
     public void CalculateConvergence_PerfectCorrelation_ReturnsOne()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Corr(V⟨t⟩, R⟨t⟩) = 1 when V⟨t⟩  R⟨t⟩
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Corr(VâŸ¨tâŸ©, RâŸ¨tâŸ©) = 1 when VâŸ¨tâŸ©  RâŸ¨tâŸ©
         // 
         // If trust perfectly reflects reliability:
         //   Agent with R=0.9 gets V~90
         //   Agent with R=0.5 gets V~50
-        //   → Correlation = 1.0
-        // ═══════════════════════════════════════════════════════════════
+        //   â†’ Correlation = 1.0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
-        // ARRANGE: Agents where trust = reliability × 100
+        // ARRANGE: Agents where trust = reliability Ã— 100
         var agents = new List<SimulatedAgent>();
         foreach (var reliability in new[] { 0.1, 0.3, 0.5, 0.7, 0.9 })
         {
@@ -1858,7 +1863,7 @@ public class ConvergenceCriterionTests
                 SkillType = SkillTypes.Engineering,
                 ActualReliability = reliability
             };
-            // Trust = reliability × 100 (perfect linear relationship)
+            // Trust = reliability Ã— 100 (perfect linear relationship)
             agent.AddToHistory(ContractFactory.CreateSimple(
                 SkillTypes.Engineering, 
                 outcome: 1.0, 
@@ -1879,9 +1884,9 @@ public class ConvergenceCriterionTests
     [Fact]
     public void CalculateConvergence_NoCorrelation_ReturnsNearZero()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: Corr(V⟨t⟩, R⟨t⟩) ≈ 0 when V⟨t⟩ and R⟨t⟩ are independent
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: Corr(VâŸ¨tâŸ©, RâŸ¨tâŸ©) â‰ˆ 0 when VâŸ¨tâŸ© and RâŸ¨tâŸ© are independent
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE: Random trust values unrelated to reliability
         var random = new Random(42);
@@ -1915,9 +1920,9 @@ public class ConvergenceCriterionTests
     [Fact]
     public void CalculateConvergence_TooFewAgents_ReturnsNaN()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EDGE CASE: Pearson correlation requires n ≥ 2
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EDGE CASE: Pearson correlation requires n â‰¥ 2
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var singleAgent = new List<Agent> { new Agent { SkillType = SkillTypes.Engineering } };
@@ -1935,9 +1940,9 @@ public class ConvergenceCriterionTests
     [Fact]
     public void IsValidated_HighCorrelation_ReturnsTrue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // VALIDATION: Corr ≥ ValidationThreshold (0.95)
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // VALIDATION: Corr â‰¥ ValidationThreshold (0.95)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.True(NetworkValidator.IsValidated(0.95));
         Assert.True(NetworkValidator.IsValidated(0.99));
@@ -1957,12 +1962,12 @@ public class ConvergenceCriterionTests
     [Fact]
     public void SimulateAndValidate_ConvergesOverTime()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // SIMULATION: As n→∞, Corr(V⟨t⟩, R⟨t⟩)→1
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // SIMULATION: As nâ†’âˆž, Corr(VâŸ¨tâŸ©, RâŸ¨tâŸ©)â†’1
         // 
         // With enough contracts, trust scores should reflect actual
         // reliability due to the law of large numbers.
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var random = new Random(123);
@@ -1993,14 +1998,14 @@ Tests for contract structure and validation.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  c = (a_provider, a_consumer, t, s, d, τ)                          │
-│                                                                     │
-│  Constraints:                                                       │
-│    s ≥ 0              (stake is non-negative)                      │
-│    d ∈ [0, 10]        (difficulty in valid range)                  │
-│    outcome ∈ [-1, 1]  (outcome in valid range)                     │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  c = (a_provider, a_consumer, t, s, d, Ï„)                          â”‚
+â”‚                                                                     â”‚
+â”‚  Constraints:                                                       â”‚
+â”‚    s â‰¥ 0              (stake is non-negative)                      â”‚
+â”‚    d âˆˆ [0, 10]        (difficulty in valid range)                  â”‚
+â”‚    outcome âˆˆ [-1, 1]  (outcome in valid range)                     â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -2009,23 +2014,23 @@ Tests for contract structure and validation.
 /// Tests for contract structure and validation.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  c = (a_provider, a_consumer, t, s, d, τ)                          │
-/// │                                                                     │
-/// │  Constraints:                                                       │
-/// │    s ≥ 0              (stake is non-negative)                      │
-/// │    d ∈ [0, 10]        (difficulty in valid range)                  │
-/// │    outcome ∈ [-1, 1]  (outcome in valid range)                     │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  c = (a_provider, a_consumer, t, s, d, Ï„)                          â”‚
+/// â”‚                                                                     â”‚
+/// â”‚  Constraints:                                                       â”‚
+/// â”‚    s â‰¥ 0              (stake is non-negative)                      â”‚
+/// â”‚    d âˆˆ [0, 10]        (difficulty in valid range)                  â”‚
+/// â”‚    outcome âˆˆ [-1, 1]  (outcome in valid range)                     â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// </summary>
 public class ContractValidationTests
 {
     [Fact]
     public void Contract_ValidValues_IsValid()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // VALID CONTRACT: All constraints satisfied
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE & ACT
         var contract = ContractFactory.CreateSimple(
@@ -2044,9 +2049,9 @@ public class ContractValidationTests
     [Fact]
     public void Contract_NegativeStake_Throws()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: s ≥ 0
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: s â‰¥ 0
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Throws<ArgumentOutOfRangeException>(() => new Contract
         {
@@ -2065,9 +2070,9 @@ public class ContractValidationTests
     [InlineData(15)]
     public void Contract_InvalidDifficulty_Throws(double difficulty)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: d ∈ [0, 10]
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: d âˆˆ [0, 10]
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Throws<ArgumentOutOfRangeException>(() => new Contract
         {
@@ -2086,9 +2091,9 @@ public class ContractValidationTests
     [InlineData(5)]
     public void Contract_InvalidOutcome_Throws(double outcome)
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: outcome ∈ [-1, 1]
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: outcome âˆˆ [-1, 1]
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Throws<ArgumentOutOfRangeException>(() => new Contract
         {
@@ -2103,9 +2108,9 @@ public class ContractValidationTests
     [Fact]
     public void Contract_EmptySkillType_Throws()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // CONSTRAINT: t ≠ ∅ (skill type required)
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // CONSTRAINT: t â‰  âˆ… (skill type required)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         Assert.Throws<ArgumentException>(() => new Contract
         {
@@ -2120,9 +2125,9 @@ public class ContractValidationTests
     [Fact]
     public void Contract_Create_ValidatesAllFields()
     {
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // FACTORY: Contract.Create validates inputs
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var provider = new Agent { SkillType = SkillTypes.Engineering };
@@ -2222,9 +2227,9 @@ Tests for the TrustValuation.V() static helper function.
 **Mathematical Notation:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────
-│  V⟨t⟩: q⟨T⟩ →                                                      │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+â”‚  VâŸ¨tâŸ©: qâŸ¨TâŸ© â†’                                                      â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ```csharp
@@ -2233,18 +2238,18 @@ Tests for the TrustValuation.V() static helper function.
 /// Tests for the TrustValuation.V() static helper function.
 /// 
 /// Mathematical notation:
-/// ┌─────────────────────────────────────────────────────────────────────
-/// │  V⟨t⟩: q⟨T⟩ →                                                      │
-/// └─────────────────────────────────────────────────────────────────────┘
+/// â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// â”‚  VâŸ¨tâŸ©: qâŸ¨TâŸ© â†’                                                      â”‚
+/// â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 /// </summary>
 public class TrustValuationTests
 {
     [Fact]
     public void V_Agent_ReturnsTrustValue()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩(Agent) = computed trust value
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©(Agent) = computed trust value
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent = new Agent { SkillType = SkillTypes.Engineering };
@@ -2260,9 +2265,9 @@ public class TrustValuationTests
     [Fact]
     public void V_DAO_ReturnsAggregatedTrust()
     {
-        // ═══════════════════════════════════════════════════════════════
-        // EQUATION: V⟨t⟩(DAO) = Φ({member trusts})
-        // ═══════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // EQUATION: VâŸ¨tâŸ©(DAO) = Î¦({member trusts})
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         
         // ARRANGE
         var agent1 = new Agent { SkillType = SkillTypes.Engineering };
@@ -2299,6 +2304,1163 @@ public class TrustValuationTests
 
         Assert.Equal(0.0, TrustValuation.V(agent, ""));
         Assert.Equal(0.0, TrustValuation.V(agent, null!));
+    }
+}
+
+```
+
+---
+
+## 14. Customer Trust Calculation Tests
+
+Tests for customer trust computation based on behavioral metrics.
+
+**Mathematical Notation:**
+
+```
+┌───────────────────────────────────────────────────────────────────────────────
+│  V⟨t⟩^customer(Consumer) = Σ ω(c) · behavior(c) · γ(c) · ν(c)               │
+└───────────────────────────────────────────────────────────────────────────────
+```
+
+```csharp
+
+/// <summary>
+/// Tests for customer trust computation.
+/// 
+/// Mathematical notation:
+/// ┌───────────────────────────────────────────────────────────────────────────────
+/// │  V⟨t⟩^customer(Consumer) = Σ ω(c) · behavior(c) · γ(c) · ν(c)               │
+/// └───────────────────────────────────────────────────────────────────────────────
+/// 
+/// Customer trust is computed from observable behaviors, not assigned outcomes.
+/// Six customer skill types:
+///   - Commitment: completed / initiated projects
+///   - Escrow Discipline: on-time funding + prompt release
+///   - Verification Integrity: rating variance near ideal
+///   - Scope Stability: tasks as planned / total tasks
+///   - Timeline Realism: deadline accuracy
+///   - Spec Quality: impl outcomes for approved specs
+/// </summary>
+public class CustomerTrustCalculationTests
+{
+    [Fact]
+    public void ComputeCommitmentTrust_AllCompleted_ReturnsOne()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_commitment = completed / initiated
+        // When completed = initiated, commitment = 1.0 (perfect)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 10,
+            ProjectsCompleted = 10
+        };
+        var expected = 1.0;
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeCommitmentTrust(profile);
+
+        // ASSERT
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ComputeCommitmentTrust_HalfCompleted_ReturnsHalf()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_commitment = completed / initiated = 5 / 10 = 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 10,
+            ProjectsCompleted = 5
+        };
+        var expected = 0.5;
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeCommitmentTrust(profile);
+
+        // ASSERT
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ComputeCommitmentTrust_NoneInitiated_ReturnsZero()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Edge case: Division by zero protection
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 0,
+            ProjectsCompleted = 0
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeCommitmentTrust(profile);
+
+        // ASSERT
+        Assert.Equal(0.0, actual);
+    }
+
+    [Fact]
+    public void ComputeEscrowTrust_PerfectRecord_ReturnsHigh()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_escrow = 0.7 × funding_rate + 0.3 × delay_factor
+        // Perfect: funding_rate = 1.0, delay = 0 → delay_factor = 1.0
+        // Result: 0.7 × 1.0 + 0.3 × 1.0 = 1.0
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            OnTimeFundings = 10,
+            TotalFundings = 10,
+            AvgReleaseDelayDays = 0.0
+        };
+        var expected = 1.0;
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeEscrowTrust(profile);
+
+        // ASSERT
+        Assert.Equal(expected, actual, precision: 2);
+    }
+
+    [Fact]
+    public void ComputeEscrowTrust_LateReleases_ReducesTrust()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: delay_factor decreases as avg delay increases
+        // 7+ days delay → delay_factor = 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            OnTimeFundings = 10,
+            TotalFundings = 10,
+            AvgReleaseDelayDays = 10.0  // Very late
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeEscrowTrust(profile);
+
+        // ASSERT: Should be 0.7 × 1.0 + 0.3 × 0.5 = 0.85
+        Assert.Equal(0.85, actual, precision: 2);
+    }
+
+    [Fact]
+    public void ComputeVerificationIntegrity_IdealVariance_ReturnsHigh()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: Ideal variance ≈ 0.35
+        // Distance from ideal = 0 → integrity = 1.0
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TotalRatingsGiven = 20,
+            RatingsVariance = TrustConstants.IdealRatingVariance  // 0.35
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeVerificationIntegrity(profile);
+
+        // ASSERT
+        Assert.True(actual > 0.9, "Ideal variance should yield high integrity");
+    }
+
+    [Fact]
+    public void ComputeVerificationIntegrity_ZeroVariance_RubberStamping_ReturnsLow()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: Very low variance = rubber-stamping → severe penalty
+        // variance < MIN_RATING_VARIANCE → 0.5x multiplier
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TotalRatingsGiven = 20,
+            RatingsVariance = 0.01  // Almost no variance (rubber-stamping)
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeVerificationIntegrity(profile);
+
+        // ASSERT
+        Assert.True(actual < 0.5, "Rubber-stamping should yield low integrity");
+    }
+
+    [Fact]
+    public void ComputeVerificationIntegrity_HighVariance_Erratic_ReturnsReduced()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: variance > MAX_RATING_VARIANCE → 0.75x multiplier
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TotalRatingsGiven = 20,
+            RatingsVariance = 0.9  // Very high variance (erratic)
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeVerificationIntegrity(profile);
+
+        // ASSERT
+        Assert.True(actual < 0.7, "Erratic rating should reduce integrity");
+    }
+
+    [Fact]
+    public void ComputeScopeStability_AllAsPlanned_ReturnsOne()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_scope = tasks_as_planned / total_tasks = 1.0
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ScopeTasksAsPlanned = 50,
+            ScopeTotalTasks = 50
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeScopeStability(profile);
+
+        // ASSERT
+        Assert.Equal(1.0, actual);
+    }
+
+    [Fact]
+    public void ComputeScopeStability_HalfDeviated_ReturnsHalf()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_scope = 25 / 50 = 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ScopeTasksAsPlanned = 25,
+            ScopeTotalTasks = 50
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeScopeStability(profile);
+
+        // ASSERT
+        Assert.Equal(0.5, actual);
+    }
+
+    [Fact]
+    public void ComputeTimelineRealism_OnTime_ReturnsHigh()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: accuracy >= 0 → maps to [0.5, 1.0]
+        // On-time delivery (accuracy = 0) → 0.5
+        // Early delivery (accuracy > 0) → > 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TimelineAccuracySum = 0.0,  // On time
+            TimelineProjectsCount = 10
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeTimelineRealism(profile);
+
+        // ASSERT
+        Assert.Equal(0.5, actual, precision: 2);
+    }
+
+    [Fact]
+    public void ComputeTimelineRealism_ChronicOverruns_ReturnsLow()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: accuracy < 0 → maps to [0, 0.5]
+        // Large overruns → low realism score
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TimelineAccuracySum = -10.0,  // 1.0 average overrun per project
+            TimelineProjectsCount = 10
+        };
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeTimelineRealism(profile);
+
+        // ASSERT
+        Assert.True(actual < 0.5, "Chronic overruns should yield low realism");
+    }
+
+    [Fact]
+    public void ComputeSpecQuality_GoodImplementations_ReturnsPositive()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: V_spec = Σ(weight × outcome) / Σ(weight)
+        // Weighted average of implementation outcomes
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ImplementationOutcomes = new[]
+            {
+                (Outcome: 1.0, Weight: 2.0),  // +2.0
+                (Outcome: 0.8, Weight: 1.0),  // +0.8
+                (Outcome: 0.6, Weight: 1.0),  // +0.6
+            }
+        };
+        // Expected: (2×1.0 + 1×0.8 + 1×0.6) / (2+1+1) = 3.4 / 4 = 0.85
+
+        // ACT
+        var actual = CustomerTrustCalculator.ComputeSpecQuality(profile);
+
+        // ASSERT
+        Assert.Equal(0.85, actual, precision: 2);
+    }
+
+    [Fact]
+    public void ComputeCustomerTrust_RoutesToCorrectMethod()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: ComputeCustomerTrust dispatches to skill-specific method
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 10,
+            ProjectsCompleted = 8
+        };
+
+        // ACT
+        var commitment = CustomerTrustCalculator.ComputeCustomerTrust(
+            profile, CustomerSkillTypes.Commitment);
+
+        // ASSERT
+        Assert.Equal(0.8, commitment);
+    }
+
+    [Fact]
+    public void ComputeCompositeTrust_AveragesAllDimensions()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: Composite = weighted average of all customer skills
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE: Perfect customer across all dimensions
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 10,
+            ProjectsCompleted = 10,
+            OnTimeFundings = 10,
+            TotalFundings = 10,
+            AvgReleaseDelayDays = 0,
+            TotalRatingsGiven = 20,
+            RatingsVariance = TrustConstants.IdealRatingVariance,
+            ScopeTasksAsPlanned = 50,
+            ScopeTotalTasks = 50,
+            TimelineAccuracySum = 5.0,  // Early delivery
+            TimelineProjectsCount = 10,
+            ImplementationOutcomes = new[] { (1.0, 1.0) }
+        };
+
+        // ACT
+        var composite = CustomerTrustCalculator.ComputeCompositeTrust(profile);
+
+        // ASSERT: Should be high (all dimensions near 1.0)
+        Assert.True(composite > 0.7, $"Perfect customer should have high composite trust, got {composite}");
+    }
+}
+
+```
+
+---
+
+## 15. Verification Weight Tests
+
+Tests for verification weight calculation based on customer credibility.
+
+**Mathematical Notation:**
+
+```
+┌───────────────────────────────────────────────────────────────────────────────
+│  verification_weight(c) = f(V_verify(consumer), σ²(ratings))                 │
+└───────────────────────────────────────────────────────────────────────────────
+```
+
+```csharp
+
+/// <summary>
+/// Tests for verification weight calculation.
+/// 
+/// Mathematical notation:
+/// ┌───────────────────────────────────────────────────────────────────────────────
+/// │  verification_weight(c) = f(V_verify(consumer), σ²(ratings))                 │
+/// └───────────────────────────────────────────────────────────────────────────────
+/// 
+/// Verification weight adjusts how much a customer's rating contributes to trust.
+/// High-credibility customers' ratings count more.
+/// </summary>
+public class VerificationWeightTests
+{
+    [Fact]
+    public void ComputeVerificationWeight_HighTrust_NormalVariance_ReturnsHigh()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: weight = trust_factor × variance_factor
+        // High trust + normal variance → high weight
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double customerVerificationTrust = 0.9;  // High integrity
+        double customerRatingVariance = 0.35;    // Ideal variance
+
+        // ACT
+        var weight = VerificationWeightCalculator.ComputeVerificationWeight(
+            customerVerificationTrust,
+            customerRatingVariance);
+
+        // ASSERT: Should be close to 1.0 or above
+        Assert.True(weight >= 0.9, $"High trust + ideal variance should yield high weight, got {weight}");
+    }
+
+    [Fact]
+    public void ComputeVerificationWeight_LowTrust_ReturnsLow()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: trust_factor = 0.5 + (trust × 0.5)
+        // Low trust (0.1) → trust_factor = 0.5 + 0.05 = 0.55
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double customerVerificationTrust = 0.1;  // Low integrity
+        double customerRatingVariance = 0.35;    // Normal variance
+
+        // ACT
+        var weight = VerificationWeightCalculator.ComputeVerificationWeight(
+            customerVerificationTrust,
+            customerRatingVariance);
+
+        // ASSERT
+        Assert.True(weight < 0.7, $"Low trust should yield low weight, got {weight}");
+    }
+
+    [Fact]
+    public void ComputeVerificationWeight_RubberStamping_PenalizesWeight()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: variance < MIN → variance_factor = 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double customerVerificationTrust = 0.9;  // High trust
+        double customerRatingVariance = 0.05;    // Too low (rubber-stamping)
+
+        // ACT
+        var weight = VerificationWeightCalculator.ComputeVerificationWeight(
+            customerVerificationTrust,
+            customerRatingVariance);
+
+        // ASSERT: Despite high trust, variance penalty reduces weight
+        Assert.True(weight < 0.75, $"Rubber-stamping should reduce weight, got {weight}");
+    }
+
+    [Fact]
+    public void ComputeVerificationWeight_ErraticRating_PenalizesWeight()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: variance > MAX → variance_factor = 0.7
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double customerVerificationTrust = 0.9;  // High trust
+        double customerRatingVariance = 0.9;     // Too high (erratic)
+
+        // ACT
+        var weight = VerificationWeightCalculator.ComputeVerificationWeight(
+            customerVerificationTrust,
+            customerRatingVariance);
+
+        // ASSERT: Erratic rating penalty
+        Assert.True(weight < 0.9, $"Erratic rating should reduce weight, got {weight}");
+    }
+
+    [Fact]
+    public void ComputeVerificationWeight_ClampedToRange()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: weight ∈ [0.5, 1.5]
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE - worst case
+        double lowTrust = 0.0;
+        double lowVariance = 0.0;
+
+        // ACT
+        var weight = VerificationWeightCalculator.ComputeVerificationWeight(
+            lowTrust, lowVariance);
+
+        // ASSERT
+        Assert.True(weight >= TrustConstants.MinVerificationWeight,
+            $"Weight should be at least {TrustConstants.MinVerificationWeight}, got {weight}");
+        Assert.True(weight <= TrustConstants.MaxVerificationWeight,
+            $"Weight should be at most {TrustConstants.MaxVerificationWeight}, got {weight}");
+    }
+
+    [Fact]
+    public void ComputeAdjustedContribution_AppliesWeight()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: adjusted = base_contribution × verification_weight
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var contract = ContractFactory.CreateSimple(
+            skillType: SkillTypes.Engineering,
+            outcome: 1.0,
+            weight: 2.0
+        );
+        // Base contribution = 2.0 × 1.0 = 2.0
+
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TotalRatingsGiven = 20,
+            RatingsVariance = 0.35  // Ideal
+        };
+
+        // ACT
+        var adjusted = VerificationWeightCalculator.ComputeAdjustedContribution(
+            contract, profile);
+
+        // ASSERT: Adjusted should differ from base if weight != 1.0
+        Assert.NotEqual(0.0, adjusted);
+    }
+
+    [Fact]
+    public void ComputeAdjustedContribution_NullProfile_ReturnsBase()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Edge case: No profile → use base contribution unchanged
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var contract = ContractFactory.CreateSimple(
+            skillType: SkillTypes.Engineering,
+            outcome: 1.0,
+            weight: 2.0
+        );
+        var expected = 2.0;  // weight × outcome
+
+        // ACT
+        var adjusted = VerificationWeightCalculator.ComputeAdjustedContribution(
+            contract, null);
+
+        // ASSERT
+        Assert.Equal(expected, adjusted);
+    }
+}
+
+```
+
+---
+
+## 16. Task Decomposition Tests
+
+Tests for task-level decomposition within phases and team-based implementation.
+
+**Mathematical Notation:**
+
+```
+┌───────────────────────────────────────────────────────────────────────────────
+│  s_task = s_phase × (w_task / Σ w_tasks)                                     │
+└───────────────────────────────────────────────────────────────────────────────
+```
+
+```csharp
+
+/// <summary>
+/// Tests for task decomposition and team-based implementation.
+/// 
+/// Mathematical notation:
+/// ┌───────────────────────────────────────────────────────────────────────────────
+/// │  s_task = s_phase × (w_task / Σ w_tasks)                                     │
+/// └───────────────────────────────────────────────────────────────────────────────
+/// 
+/// Tasks are sub-subcontracts within phases.
+/// Each task can have its own provider (enabling team-based implementation).
+/// </summary>
+public class TaskDecompositionTests
+{
+    [Fact]
+    public void ComputeTaskStake_EqualWeights_SplitsEvenly()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: s_task = s_phase × (w_task / Σ w_tasks)
+        // 
+        // phase_stake = 1000, 4 tasks with weight 1.0 each
+        // task_stake = 1000 × (1 / 4) = 250
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double phaseStake = 1000;
+        double taskWeight = 1.0;
+        double totalTaskWeight = 4.0;  // 4 tasks × 1.0 each
+
+        // ACT
+        var taskStake = TaskDecomposition.ComputeTaskStake(
+            phaseStake, taskWeight, totalTaskWeight);
+
+        // ASSERT
+        Assert.Equal(250.0, taskStake);
+    }
+
+    [Fact]
+    public void ComputeTaskStake_UnequalWeights_ProportionalSplit()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: s_task = s_phase × (w_task / Σ w_tasks)
+        // 
+        // phase_stake = 1000
+        // Task weights: 2.0, 1.0, 1.0 (total = 4.0)
+        // First task: 1000 × (2 / 4) = 500
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double phaseStake = 1000;
+        double taskWeight = 2.0;
+        double totalTaskWeight = 4.0;
+
+        // ACT
+        var taskStake = TaskDecomposition.ComputeTaskStake(
+            phaseStake, taskWeight, totalTaskWeight);
+
+        // ASSERT
+        Assert.Equal(500.0, taskStake);
+    }
+
+    [Fact]
+    public void ComputeTaskStake_ZeroTotalWeight_ReturnsZero()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Edge case: Division by zero protection
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        double phaseStake = 1000;
+        double taskWeight = 1.0;
+        double totalTaskWeight = 0.0;
+
+        // ACT
+        var taskStake = TaskDecomposition.ComputeTaskStake(
+            phaseStake, taskWeight, totalTaskWeight);
+
+        // ASSERT
+        Assert.Equal(0.0, taskStake);
+    }
+
+    [Fact]
+    public void ComputePlanningAccuracy_AllAsPlanned_ReturnsOne()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: planning_accuracy = as_planned / total
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        int tasksAsPlanned = 10;
+        int tasksDeviated = 0;
+
+        // ACT
+        var accuracy = TaskDecomposition.ComputePlanningAccuracy(
+            tasksAsPlanned, tasksDeviated);
+
+        // ASSERT
+        Assert.Equal(1.0, accuracy);
+    }
+
+    [Fact]
+    public void ComputePlanningAccuracy_HalfDeviated_ReturnsHalf()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: planning_accuracy = 5 / 10 = 0.5
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        int tasksAsPlanned = 5;
+        int tasksDeviated = 5;
+
+        // ACT
+        var accuracy = TaskDecomposition.ComputePlanningAccuracy(
+            tasksAsPlanned, tasksDeviated);
+
+        // ASSERT
+        Assert.Equal(0.5, accuracy);
+    }
+
+    [Fact]
+    public void ComputePlanningAccuracy_NoTasks_ReturnsOne()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Edge case: No tasks = vacuously true (100% accuracy)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        int tasksAsPlanned = 0;
+        int tasksDeviated = 0;
+
+        // ACT
+        var accuracy = TaskDecomposition.ComputePlanningAccuracy(
+            tasksAsPlanned, tasksDeviated);
+
+        // ASSERT
+        Assert.Equal(1.0, accuracy);
+    }
+
+    [Fact]
+    public void PhaseWithTasks_AggregateProviderContribution_SingleProvider()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: contribution = Σ(phase_weight × stake_ratio × task_outcome)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: provider,
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30),
+            weight: 2.0
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 1.0, Outcome = 1.0 },
+                new Task { Provider = provider, Weight = 1.0, Outcome = 0.5 },
+            }
+        };
+
+        // ACT
+        var contribution = phase.AggregateProviderContribution(provider);
+
+        // ASSERT: Both tasks belong to this provider
+        Assert.True(contribution > 0, "Provider with positive outcomes should have positive contribution");
+    }
+
+    [Fact]
+    public void PhaseWithTasks_AggregateProviderContribution_TeamBased()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Team-based implementation: Different providers for different tasks
+        // Each provider only gets credit for their own tasks
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var alice = new Agent { SkillType = SkillTypes.Engineering };
+        var bob = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: alice,  // Phase "owner" but tasks split
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30),
+            weight: 2.0
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Tasks = new[]
+            {
+                new Task { Provider = alice, Weight = 1.0, Outcome = 1.0 },  // Alice's task
+                new Task { Provider = bob, Weight = 1.0, Outcome = -0.5 },   // Bob's task
+            }
+        };
+
+        // ACT
+        var aliceContribution = phase.AggregateProviderContribution(alice);
+        var bobContribution = phase.AggregateProviderContribution(bob);
+
+        // ASSERT
+        Assert.True(aliceContribution > 0, "Alice (success) should have positive contribution");
+        Assert.True(bobContribution < 0, "Bob (failure) should have negative contribution");
+        Assert.NotEqual(aliceContribution, bobContribution);
+    }
+
+    [Fact]
+    public void PhaseWithTasks_ComputeAggregateOutcome_WeightedAverage()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: phase_outcome = Σ(w_i × outcome_i) / Σ w_i
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: provider,
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30)
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 2.0, Outcome = 1.0 },  // +2.0
+                new Task { Provider = provider, Weight = 1.0, Outcome = -1.0 }, // -1.0
+            }
+            // Total weight = 3.0, weighted sum = 2.0 - 1.0 = 1.0
+            // Average = 1.0 / 3.0 ≈ 0.333
+        };
+
+        // ACT
+        var outcome = phase.ComputeAggregateOutcome();
+
+        // ASSERT
+        Assert.Equal(1.0 / 3.0, outcome, precision: 3);
+    }
+
+    [Fact]
+    public void AggregateAllProviderContributions_ReturnsDictionary()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Team aggregation: Dictionary mapping provider → contribution
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var alice = new Agent { SkillType = SkillTypes.Engineering };
+        var bob = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: alice,
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30),
+            weight: 2.0
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Tasks = new[]
+            {
+                new Task { Provider = alice, Weight = 1.0, Outcome = 1.0 },
+                new Task { Provider = alice, Weight = 1.0, Outcome = 0.8 },
+                new Task { Provider = bob, Weight = 2.0, Outcome = 0.5 },
+            }
+        };
+
+        // ACT
+        var contributions = TaskDecomposition.AggregateAllProviderContributions(phase);
+
+        // ASSERT
+        Assert.Equal(2, contributions.Count);
+        Assert.True(contributions.ContainsKey(alice.Id));
+        Assert.True(contributions.ContainsKey(bob.Id));
+    }
+}
+
+```
+
+---
+
+## 17. Customer Profile Tests
+
+Tests for CustomerProfile computed properties and behavior aggregation.
+
+```csharp
+
+/// <summary>
+/// Tests for CustomerProfile computed properties.
+/// </summary>
+public class CustomerProfileTests
+{
+    [Fact]
+    public void CommitmentRate_ComputedCorrectly()
+    {
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ProjectsInitiated = 20,
+            ProjectsCompleted = 15
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(0.75, profile.CommitmentRate);
+    }
+
+    [Fact]
+    public void FundingReliability_ComputedCorrectly()
+    {
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            OnTimeFundings = 8,
+            TotalFundings = 10
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(0.8, profile.FundingReliability);
+    }
+
+    [Fact]
+    public void ScopeStability_ComputedCorrectly()
+    {
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            ScopeTasksAsPlanned = 45,
+            ScopeTotalTasks = 50
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(0.9, profile.ScopeStability);
+    }
+
+    [Fact]
+    public void AvgTimelineAccuracy_ComputedCorrectly()
+    {
+        // ARRANGE
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering },
+            TimelineAccuracySum = 5.0,
+            TimelineProjectsCount = 10
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(0.5, profile.AvgTimelineAccuracy);
+    }
+
+    [Fact]
+    public void AllRates_ZeroDenominator_ReturnZero()
+    {
+        // Edge case: Empty profile should return zeros, not throw
+        var profile = new CustomerProfile
+        {
+            Customer = new Agent { SkillType = SkillTypes.Engineering }
+        };
+
+        Assert.Equal(0.0, profile.CommitmentRate);
+        Assert.Equal(0.0, profile.FundingReliability);
+        Assert.Equal(0.0, profile.ScopeStability);
+        Assert.Equal(0.0, profile.AvgTimelineAccuracy);
+    }
+}
+
+```
+
+---
+
+## 18. Hierarchical Contract Tests
+
+Tests for hierarchical contract structure (Project → Phase → Task).
+
+```csharp
+
+/// <summary>
+/// Tests for hierarchical contract structure.
+/// </summary>
+public class HierarchicalContractTests
+{
+    [Fact]
+    public void Contract_TypeDefaults_ToStandalone()
+    {
+        // ARRANGE & ACT
+        var contract = ContractFactory.CreateSimple(
+            skillType: SkillTypes.Engineering,
+            outcome: 1.0,
+            weight: 1.0
+        );
+
+        // ASSERT
+        Assert.Equal(ContractType.Standalone, contract.Type);
+    }
+
+    [Fact]
+    public void Contract_TaskType_RequiresParentRef()
+    {
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var taskContract = new Contract
+        {
+            Provider = provider,
+            Consumer = consumer,
+            SkillType = SkillTypes.Engineering,
+            Stake = 100,
+            Difficulty = 5,
+            Deadline = DateTime.UtcNow.AddDays(7),
+            Type = ContractType.Task,
+            ParentRef = null  // Missing parent!
+        };
+
+        // ACT
+        var errors = taskContract.Validate();
+
+        // ASSERT
+        Assert.Contains(errors, e => e.Contains("ParentRef"));
+    }
+
+    [Fact]
+    public void Contract_PlanningAccuracy_ComputedFromFields()
+    {
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var implContract = new Contract
+        {
+            Provider = provider,
+            Consumer = consumer,
+            SkillType = SkillTypes.Engineering,
+            Stake = 1000,
+            Difficulty = 5,
+            Deadline = DateTime.UtcNow.AddDays(30),
+            Type = ContractType.Implementation,
+            TasksCompletedAsPlanned = 8,
+            TasksDeviated = 2
+        };
+
+        // ACT
+        var accuracy = implContract.PlanningAccuracy;
+
+        // ASSERT: 8 / (8 + 2) = 0.8
+        Assert.Equal(0.8, accuracy);
+    }
+
+    [Fact]
+    public void Contract_PlanningAccuracy_NoTasks_ReturnsOne()
+    {
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var implContract = new Contract
+        {
+            Provider = provider,
+            Consumer = consumer,
+            SkillType = SkillTypes.Engineering,
+            Stake = 1000,
+            Difficulty = 5,
+            Deadline = DateTime.UtcNow.AddDays(30),
+            Type = ContractType.Implementation,
+            TasksCompletedAsPlanned = 0,
+            TasksDeviated = 0
+        };
+
+        // ACT
+        var accuracy = implContract.PlanningAccuracy;
+
+        // ASSERT: 0 / 0 = 1.0 (vacuously true)
+        Assert.Equal(1.0, accuracy);
+    }
+
+    [Fact]
+    public void Task_ComputeStake_ProportionalToWeight()
+    {
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var task = new Task
+        {
+            Provider = provider,
+            Weight = 2.0,
+            Outcome = 1.0
+        };
+
+        // ACT
+        var taskStake = task.ComputeStake(phaseStake: 1000, totalTaskWeight: 5.0);
+
+        // ASSERT: 1000 × (2 / 5) = 400
+        Assert.Equal(400.0, taskStake);
+    }
+
+    [Theory]
+    [InlineData(ContractType.Standalone)]
+    [InlineData(ContractType.Specification)]
+    [InlineData(ContractType.Planning)]
+    [InlineData(ContractType.Implementation)]
+    [InlineData(ContractType.Task)]
+    public void ContractType_AllValuesValid(ContractType type)
+    {
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var contract = new Contract
+        {
+            Provider = provider,
+            Consumer = consumer,
+            SkillType = SkillTypes.Engineering,
+            Stake = 100,
+            Difficulty = 5,
+            Deadline = DateTime.UtcNow.AddDays(7),
+            Type = type,
+            ParentRef = type == ContractType.Task ? Guid.NewGuid() : null
+        };
+
+        // ACT
+        var errors = contract.Validate();
+
+        // ASSERT
+        Assert.Empty(errors);
     }
 }
 

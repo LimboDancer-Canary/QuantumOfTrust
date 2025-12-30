@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document translates the mathematical equations from the Quantum of Trust framework into practical C# implementations. The Quantum of Trust (q\<T\>) is a formal system for quantifying trust as a measurable outcome of actions rather than an attribute of identity—enabling decentralized networks where reputation becomes a form of tradeable, context-specific capital.
+This document translates the mathematical equations from the Quantum of Trust framework into practical C# implementations. The Quantum of Trust (q\<T\>) is a formal system for quantifying trust as a measurable outcome of actions rather than an attribute of identityâ€”enabling decentralized networks where reputation becomes a form of tradeable, context-specific capital.
 
 ### What This Document Covers
 
@@ -10,13 +10,16 @@ This document translates the mathematical equations from the Quantum of Trust fr
 2. **Valuation function** - Trust computation returning real numbers (positive = trusted, negative = distrusted, zero = unknown)
 3. **Agent trust calculation** - Sum of weighted outcomes from contract history
 4. **DAO aggregation** - Configurable Φ function (sum, average, min, etc.)
-5. **Contract structure** - The full tuple with provider, consumer, skill type, stake, difficulty, and deadline
+5. **Contract structure** - The full tuple with hierarchical decomposition support
 6. **Outcome handling** - Continuous [-1, 1] range with discrete special cases
 7. **Weighting function** - Combines stake, difficulty, counterparty trust, and recency
 8. **History and trust evolution** - Incremental updates as contracts complete
 9. **Eligibility checking** - Threshold-based access control for contracts
 10. **Validation metrics** - Pearson correlation for convergence testing
 11. **Sybil resistance analysis** - Demonstrates why identity splitting is disadvantageous
+12. **Customer trust** - Bidirectional trust computation for consumers
+13. **Verification weight** - Customer credibility affects rating weight
+14. **Task decomposition** - Team-based implementation with sub-subcontracts
 
 The document includes a complete working example demonstrating Jane's two separate agencies (Engineer and Designer) with independent trust quotients, illustrating the core principle that reputation can be decoupled from singular identity.
 
@@ -63,10 +66,98 @@ namespace QuantumOfTrust
         // Threshold calculation
         public const double MinimumThresholdFactor = 0.1;
 
+        // Verification weight bounds
+        public const double IdealRatingVariance = 0.35;
+        public const double MinRatingVariance = 0.10;
+        public const double MaxRatingVariance = 0.80;
+        public const double MinVerificationWeight = 0.5;
+        public const double MaxVerificationWeight = 1.5;
+
+        // Task decomposition
+        public const int MaxTasksPerPhase = 64;
+
         /// <summary>
         /// Returns current UTC time for consistent timestamp handling.
         /// </summary>
         public static DateTime Now => DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Customer-specific skill types for measuring consumer behavior.
+    /// Unlike provider skill types (which measure delivery capability),
+    /// customer skill types measure behavior as a contract consumer.
+    /// </summary>
+    public static class CustomerSkillTypes
+    {
+        /// <summary>
+        /// Measures whether specs approved by this customer lead to successful implementations.
+        /// Computed from outcomes of implementation phases where customer approved spec.
+        /// </summary>
+        public const string SpecQuality = "customer:spec_quality";
+
+        /// <summary>
+        /// Measures completed_projects / initiated_projects ratio.
+        /// High commitment = reliable partner who sees projects through.
+        /// </summary>
+        public const string Commitment = "customer:commitment";
+
+        /// <summary>
+        /// Measures fairness and variance of ratings given by this customer.
+        /// Ideal variance ~0.35; too low = rubber-stamping, too high = erratic.
+        /// </summary>
+        public const string Verification = "customer:verification";
+
+        /// <summary>
+        /// Measures on-time funding and prompt release of escrow.
+        /// High discipline = funds on time, releases promptly after completion.
+        /// </summary>
+        public const string EscrowDiscipline = "customer:escrow";
+
+        /// <summary>
+        /// Measures accuracy of deadline estimates across projects.
+        /// High realism = achievable deadlines, low = chronic underestimation.
+        /// </summary>
+        public const string TimelineRealism = "customer:timeline";
+
+        /// <summary>
+        /// Measures adherence to agreed specifications.
+        /// tasks_as_planned / total_tasks - high = stable scope, low = scope creep.
+        /// </summary>
+        public const string ScopeStability = "customer:scope";
+
+        /// <summary>
+        /// Returns true if the skill type is a customer skill type.
+        /// </summary>
+        public static bool IsCustomerSkillType(string skillType)
+        {
+            return skillType?.StartsWith("customer:") ?? false;
+        }
+
+        /// <summary>
+        /// All customer skill types for iteration.
+        /// </summary>
+        public static readonly IReadOnlyList<string> All = new[]
+        {
+            SpecQuality, Commitment, Verification, 
+            EscrowDiscipline, TimelineRealism, ScopeStability
+        };
+    }
+
+    /// <summary>
+    /// Contract type identifiers for hierarchical contract decomposition.
+    /// </summary>
+    public enum ContractType
+    {
+        /// <summary>Standalone contract, not part of a project.</summary>
+        Standalone = 0,
+        /// <summary>Specification phase of a project.</summary>
+        Specification = 1,
+        /// <summary>Planning phase of a project.</summary>
+        Planning = 2,
+        /// <summary>Implementation phase of a project.</summary>
+        Implementation = 3,
+        /// <summary>Task within a phase (sub-subcontract).</summary>
+        Task = 4
     }
 
     /// <summary>
@@ -162,7 +253,7 @@ namespace QuantumOfTrust
 
 ## 1. Core Type Definition
 
-The Quantum of Trust framework is built on a recursive type system where trust-bearing entities come in two forms: individual **Agents** (avatars representing a person's capabilities in a specific skill domain) and **DAOs** (Decentralized Autonomous Organizations that contain other trust entities). This recursive structure—where a DAO can contain other DAOs—enables "turtles all the way down" composability, allowing complex organizational hierarchies to emerge from simple primitives. The mathematical notation uses a grammar-like definition showing that a q\<T\> is either an Agent with a skill type and history, or a DAO containing a set of other q\<T\> entities.
+The Quantum of Trust framework is built on a recursive type system where trust-bearing entities come in two forms: individual **Agents** (avatars representing a person's capabilities in a specific skill domain) and **DAOs** (Decentralized Autonomous Organizations that contain other trust entities). This recursive structureâ€”where a DAO can contain other DAOsâ€”enables "turtles all the way down" composability, allowing complex organizational hierarchies to emerge from simple primitives. The mathematical notation uses a grammar-like definition showing that a q\<T\> is either an Agent with a skill type and history, or a DAO containing a set of other q\<T\> entities.
 
 **Mathematical notation:**
 $$q\langle T \rangle ::= \text{Agent}(t, h_t) \mid \text{DAO}(\{q\langle T \rangle\})$$
@@ -218,7 +309,7 @@ public class Agent : QuantumOfTrust, IEquatable<Agent>
     /// <summary>
     /// Computes trust value by summing weighted outcomes for contracts
     /// matching the specified skill type (case-insensitive).
-    /// V_t(Agent(t, h_t)) = Σ ω(c) · outcome(c) for all c in h_t
+    /// V_t(Agent(t, h_t)) = Î£ Ï‰(c) Â· outcome(c) for all c in h_t
     /// </summary>
     public override double ComputeTrustValue(string skillType)
     {
@@ -232,7 +323,7 @@ public class Agent : QuantumOfTrust, IEquatable<Agent>
 
     /// <summary>
     /// Adds a completed contract to this agent's history.
-    /// h_t^(n+1)(a) = h_t^(n)(a) ∪ {c_n}
+    /// h_t^(n+1)(a) = h_t^(n)(a) âˆª {c_n}
     /// </summary>
     /// <exception cref="ArgumentNullException">Thrown if contract is null.</exception>
     public void AddToHistory(Contract contract)
@@ -295,14 +386,14 @@ public class DAO : QuantumOfTrust, IEquatable<DAO>
     }
 
     /// <summary>
-    /// The aggregation function Φ used to combine member trust values.
+    /// The aggregation function Î¦ used to combine member trust values.
     /// Must be set before calling ComputeTrustValue.
     /// </summary>
     public Func<IEnumerable<double>, double>? Phi { get; set; }
 
     /// <summary>
-    /// Computes trust by aggregating member trust values using Φ.
-    /// V_t(DAO(S)) = Φ({V_t(q) : q ∈ S})
+    /// Computes trust by aggregating member trust values using Î¦.
+    /// V_t(DAO(S)) = Î¦({V_t(q) : q âˆˆ S})
     /// Includes cycle detection to prevent stack overflow from circular references.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown if Phi is null or circular reference detected.</exception>
@@ -315,7 +406,7 @@ public class DAO : QuantumOfTrust, IEquatable<DAO>
     {
         if (Phi == null)
             throw new InvalidOperationException(
-                "Aggregation function Φ must be set before computing trust.");
+                "Aggregation function Î¦ must be set before computing trust.");
 
         if (_members == null || !_members.Any())
             return 0.0;
@@ -350,15 +441,15 @@ public class DAO : QuantumOfTrust, IEquatable<DAO>
 
 ## 2. Valuation Function
 
-The valuation function is the core mechanism that computes a trust score for any entity in the network. Unlike traditional reputation systems that only allow positive scores, this function maps to all real numbers (ℝ), enabling three distinct states: zero indicates an unknown entity with no track record, positive values indicate earned trust, and negative values indicate an entity that has actively earned distrust through failed contracts. This tri-state model is crucial—a newcomer (zero trust) deserves a chance, while an agent with negative trust has demonstrated unreliability and should be treated with appropriate caution.
+The valuation function is the core mechanism that computes a trust score for any entity in the network. Unlike traditional reputation systems that only allow positive scores, this function maps to all real numbers (â„), enabling three distinct states: zero indicates an unknown entity with no track record, positive values indicate earned trust, and negative values indicate an entity that has actively earned distrust through failed contracts. This tri-state model is crucialâ€”a newcomer (zero trust) deserves a chance, while an agent with negative trust has demonstrated unreliability and should be treated with appropriate caution.
 
 **Mathematical notation:**
 $$V_t: q\langle T \rangle \rightarrow \mathbb{R}$$
 
 Where:
-- $V_t = 0$ → unknown, no track record
-- $V_t > 0$ → net positive history, trusted
-- $V_t < 0$ → net negative history, actively distrusted
+- $V_t = 0$ â†’ unknown, no track record
+- $V_t > 0$ â†’ net positive history, trusted
+- $V_t < 0$ â†’ net negative history, actively distrusted
 
 **C# Implementation:**
 
@@ -370,7 +461,7 @@ public static class TrustValuation
 {
     /// <summary>
     /// Computes the trust value for any q&lt;T&gt; entity in a given skill context.
-    /// V_t: q&lt;T&gt; → ℝ
+    /// V_t: q&lt;T&gt; â†’ â„
     /// </summary>
     /// <param name="entity">The trust-bearing entity to evaluate.</param>
     /// <param name="skillType">The skill context for evaluation.</param>
@@ -397,7 +488,7 @@ public static class TrustValuation
 
 ## 3. Agent Trust Value Calculation
 
-An individual agent's trust value is computed by summing up the weighted outcomes of all contracts in their history for a specific skill type. This is the heart of "trust as action, not attribution"—your trust score is literally the accumulation of what you've done, not who you are. The skill type scoping is critical: Jane's engineering trust and design trust are computed independently from separate histories. A failure in one domain doesn't contaminate success in another. The weighting function (ω) ensures that not all contracts contribute equally—high-stakes, difficult contracts with reputable counterparties carry more signal than easy, low-value work.
+An individual agent's trust value is computed by summing up the weighted outcomes of all contracts in their history for a specific skill type. This is the heart of "trust as action, not attribution"â€”your trust score is literally the accumulation of what you've done, not who you are. The skill type scoping is critical: Jane's engineering trust and design trust are computed independently from separate histories. A failure in one domain doesn't contaminate success in another. The weighting function (Ï‰) ensures that not all contracts contribute equallyâ€”high-stakes, difficult contracts with reputable counterparties carry more signal than easy, low-value work.
 
 **Mathematical notation:**
 $$V_t(\text{Agent}(t, h_t)) = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)$$
@@ -466,7 +557,7 @@ public class JaneExample
 
 ## 4. DAO Trust Value Calculation
 
-A DAO's trust value is computed by aggregating the trust values of all its member entities using a governance-chosen aggregation function (Φ). This function could be a simple sum (total capability), an average (mean reliability), a minimum (weakest-link analysis), or any custom function appropriate to the organization's purpose. The flexibility here is intentional—a security-focused DAO might use minimum (only as strong as weakest member), while a capacity-focused DAO might use sum (total available capability). Since DAOs can contain other DAOs, this creates a recursive trust computation that flows up through organizational hierarchies.
+A DAO's trust value is computed by aggregating the trust values of all its member entities using a governance-chosen aggregation function (Î¦). This function could be a simple sum (total capability), an average (mean reliability), a minimum (weakest-link analysis), or any custom function appropriate to the organization's purpose. The flexibility here is intentionalâ€”a security-focused DAO might use minimum (only as strong as weakest member), while a capacity-focused DAO might use sum (total available capability). Since DAOs can contain other DAOs, this creates a recursive trust computation that flows up through organizational hierarchies.
 
 **Mathematical notation:**
 $$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
@@ -648,7 +739,7 @@ public class DAOExample
 
 ## 5. Contract Definition
 
-Contracts are the atomic unit of interaction in the trust network—they represent formal agreements between a provider (offering services) and a consumer (requesting services). Each contract is defined as a tuple containing all the information needed to execute and evaluate the agreement: who's involved, what skill domain it covers, how much value is at stake, how difficult the work is, and when it must be completed. Smart contracts on the blockchain enforce these terms automatically, ensuring that both parties are held accountable and that outcomes are recorded immutably. The contract structure directly feeds into the weighting function to determine how much signal each completed contract provides.
+Contracts are the atomic unit of interaction in the trust networkâ€”they represent formal agreements between a provider (offering services) and a consumer (requesting services). Each contract is defined as a tuple containing all the information needed to execute and evaluate the agreement: who's involved, what skill domain it covers, how much value is at stake, how difficult the work is, and when it must be completed. Smart contracts on the blockchain enforce these terms automatically, ensuring that both parties are held accountable and that outcomes are recorded immutably. The contract structure directly feeds into the weighting function to determine how much signal each completed contract provides.
 
 **Mathematical notation:**
 $$c = (a_{\text{provider}}, a_{\text{consumer}}, t, s, d, \tau)$$
@@ -728,10 +819,10 @@ public class Contract
         }
     }
 
-    /// <summary>τ - deadline or timestamp</summary>
+    /// <summary>Ï„ - deadline or timestamp</summary>
     public DateTime Deadline { get; init; }
 
-    /// <summary>outcome(c) ∈ [-1, 1]</summary>
+    /// <summary>outcome(c) âˆˆ [-1, 1]</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if value is outside valid range.</exception>
     public double Outcome
     {
@@ -745,7 +836,7 @@ public class Contract
         }
     }
 
-    /// <summary>Computed weight ω(c). Must be non-negative.</summary>
+    /// <summary>Computed weight Ï‰(c). Must be non-negative.</summary>
     public double Weight { get; init; }
 
     /// <summary>When the contract was completed. Cannot be in the future.</summary>
@@ -759,6 +850,56 @@ public class Contract
                 throw new ArgumentOutOfRangeException(nameof(value),
                     "CompletedAt cannot be in the future");
             _completedAt = value;
+        }
+    }
+
+    // === Hierarchical Contract Fields (Task Decomposition) ===
+
+    /// <summary>
+    /// Contract type for hierarchical decomposition.
+    /// Standalone (default), Specification, Planning, Implementation, or Task.
+    /// </summary>
+    public ContractType Type { get; init; } = ContractType.Standalone;
+
+    /// <summary>
+    /// Reference to parent contract (project ID for phases, phase ID for tasks).
+    /// Null for standalone contracts.
+    /// </summary>
+    public Guid? ParentRef { get; init; }
+
+    /// <summary>
+    /// Task weight for proportional stake allocation within a phase.
+    /// Only meaningful when Type = Task.
+    /// task_stake = phase_stake × (task_weight / Σ task_weights)
+    /// </summary>
+    public double TaskWeight { get; init; } = 1.0;
+
+    /// <summary>
+    /// For planning contracts: number of planned tasks.
+    /// Used to measure planning accuracy.
+    /// </summary>
+    public int PlannedTaskCount { get; init; }
+
+    /// <summary>
+    /// For implementation contracts: tasks completed as originally planned.
+    /// </summary>
+    public int TasksCompletedAsPlanned { get; init; }
+
+    /// <summary>
+    /// For implementation contracts: tasks that deviated from plan.
+    /// </summary>
+    public int TasksDeviated { get; init; }
+
+    /// <summary>
+    /// Computes planning accuracy: tasks_as_planned / total_tasks.
+    /// Returns 1.0 if no tasks (vacuously true).
+    /// </summary>
+    public double PlanningAccuracy
+    {
+        get
+        {
+            int total = TasksCompletedAsPlanned + TasksDeviated;
+            return total == 0 ? 1.0 : (double)TasksCompletedAsPlanned / total;
         }
     }
 
@@ -787,6 +928,12 @@ public class Contract
 
         if (Weight < 0)
             errors.Add("Weight cannot be negative");
+
+        if (TaskWeight < 0)
+            errors.Add("TaskWeight cannot be negative");
+
+        if (Type == ContractType.Task && !ParentRef.HasValue)
+            errors.Add("Task contracts must have a ParentRef");
 
         return errors;
     }
@@ -966,13 +1113,591 @@ public class ContractBuilder
             _deadline, _outcome, weight, _completedAt);
     }
 }
+
+/// <summary>
+/// Represents a task within a phase contract.
+/// Tasks are sub-subcontracts that enable granular tracking and
+/// team-based implementation where different providers handle different tasks.
+/// </summary>
+public class Task
+{
+    /// <summary>Unique identifier for this task.</summary>
+    public Guid Id { get; init; } = Guid.NewGuid();
+
+    /// <summary>
+    /// The provider assigned to this task.
+    /// Enables team-based implementation where different avatars
+    /// handle different tasks within the same phase.
+    /// </summary>
+    public Agent? Provider { get; init; }
+
+    /// <summary>Reference to the parent phase contract.</summary>
+    public Guid ParentPhaseId { get; init; }
+
+    /// <summary>Task weight for proportional stake allocation.</summary>
+    public double Weight { get; init; } = 1.0;
+
+    /// <summary>Outcome of this specific task [-1, 1].</summary>
+    public double Outcome { get; init; }
+
+    /// <summary>Whether this task was completed as planned.</summary>
+    public bool CompletedAsPlanned { get; init; } = true;
+
+    /// <summary>Timestamp when task was completed.</summary>
+    public DateTime? CompletedAt { get; init; }
+
+    /// <summary>
+    /// Computes this task's stake allocation within the phase.
+    /// task_stake = phase_stake × (task_weight / total_task_weight)
+    /// </summary>
+    public double ComputeStake(double phaseStake, double totalTaskWeight)
+    {
+        if (totalTaskWeight <= 0) return 0;
+        return phaseStake * (Weight / totalTaskWeight);
+    }
+}
+
+/// <summary>
+/// Represents a phase with its associated tasks for team-based implementation.
+/// </summary>
+public class PhaseWithTasks
+{
+    /// <summary>The phase contract.</summary>
+    public Contract PhaseContract { get; init; } = null!;
+
+    /// <summary>Tasks within this phase.</summary>
+    public IReadOnlyList<Task> Tasks { get; init; } = Array.Empty<Task>();
+
+    /// <summary>Total weight of all tasks.</summary>
+    public double TotalTaskWeight => Tasks.Sum(t => t.Weight);
+
+    /// <summary>
+    /// Aggregates task contributions for a specific provider.
+    /// Enables team members to prove their individual contribution.
+    /// </summary>
+    public double AggregateProviderContribution(Agent provider)
+    {
+        if (provider == null || TotalTaskWeight <= 0) return 0;
+
+        return Tasks
+            .Where(t => t.Provider?.Id == provider.Id)
+            .Sum(t =>
+            {
+                double taskStake = t.ComputeStake(PhaseContract.Stake, TotalTaskWeight);
+                double stakeRatio = PhaseContract.Stake > 0 
+                    ? taskStake / PhaseContract.Stake 
+                    : 0;
+                return PhaseContract.Weight * stakeRatio * t.Outcome;
+            });
+    }
+
+    /// <summary>
+    /// Computes the aggregate phase outcome from task outcomes.
+    /// Phase outcome = weighted average of task outcomes.
+    /// </summary>
+    public double ComputeAggregateOutcome()
+    {
+        if (TotalTaskWeight <= 0) return 0;
+
+        double weightedSum = Tasks.Sum(t => t.Weight * t.Outcome);
+        return weightedSum / TotalTaskWeight;
+    }
+}
+
+/// <summary>
+/// Customer behavior profile for computing customer trust.
+/// Customers earn trust from their behavior in contracts,
+/// not from outcomes assigned by others.
+/// </summary>
+public class CustomerProfile
+{
+    /// <summary>The customer's agent.</summary>
+    public Agent Customer { get; init; } = null!;
+
+    /// <summary>Total number of projects initiated by this customer.</summary>
+    public int ProjectsInitiated { get; set; }
+
+    /// <summary>Number of projects completed (all phases reached terminal state).</summary>
+    public int ProjectsCompleted { get; set; }
+
+    /// <summary>Total number of ratings (outcomes) given by this customer.</summary>
+    public int TotalRatingsGiven { get; set; }
+
+    /// <summary>
+    /// Variance of ratings given.
+    /// Low variance indicates rubber-stamping; high variance indicates erratic rating.
+    /// </summary>
+    public double RatingsVariance { get; set; }
+
+    /// <summary>Number of disputed outcomes.</summary>
+    public int DisputesCount { get; set; }
+
+    /// <summary>Number of on-time escrow fundings.</summary>
+    public int OnTimeFundings { get; set; }
+
+    /// <summary>Total number of required fundings.</summary>
+    public int TotalFundings { get; set; }
+
+    /// <summary>
+    /// Average delay in releasing escrow after completion (days).
+    /// Negative values indicate early release (good).
+    /// </summary>
+    public double AvgReleaseDelayDays { get; set; }
+
+    /// <summary>
+    /// Sum of (planned_duration - actual_duration) across projects.
+    /// Negative indicates overruns (bad), positive indicates early delivery.
+    /// </summary>
+    public double TimelineAccuracySum { get; set; }
+
+    /// <summary>Total projects for timeline calculation.</summary>
+    public int TimelineProjectsCount { get; set; }
+
+    /// <summary>Sum of tasks completed as planned across all projects.</summary>
+    public int ScopeTasksAsPlanned { get; set; }
+
+    /// <summary>Total tasks across all projects.</summary>
+    public int ScopeTotalTasks { get; set; }
+
+    /// <summary>
+    /// Implementation outcomes for specs approved by this customer.
+    /// Used for spec quality calculation.
+    /// </summary>
+    public IReadOnlyList<(double Outcome, double Weight)> ImplementationOutcomes { get; set; } 
+        = Array.Empty<(double, double)>();
+
+    // === Computed Properties ===
+
+    /// <summary>
+    /// Commitment rate: completed / initiated.
+    /// Range [0, 1]. Higher is better.
+    /// </summary>
+    public double CommitmentRate => ProjectsInitiated == 0 
+        ? 0.0 
+        : (double)ProjectsCompleted / ProjectsInitiated;
+
+    /// <summary>
+    /// Funding reliability: on_time / total.
+    /// Range [0, 1]. Higher is better.
+    /// </summary>
+    public double FundingReliability => TotalFundings == 0 
+        ? 0.0 
+        : (double)OnTimeFundings / TotalFundings;
+
+    /// <summary>
+    /// Scope stability: tasks_as_planned / total_tasks.
+    /// Range [0, 1]. Higher is better.
+    /// </summary>
+    public double ScopeStability => ScopeTotalTasks == 0 
+        ? 0.0 
+        : (double)ScopeTasksAsPlanned / ScopeTotalTasks;
+
+    /// <summary>
+    /// Average timeline accuracy per project.
+    /// Positive = early delivery (good), negative = overruns (bad).
+    /// </summary>
+    public double AvgTimelineAccuracy => TimelineProjectsCount == 0 
+        ? 0.0 
+        : TimelineAccuracySum / TimelineProjectsCount;
+}
 ```
 
 ---
 
-## 6. Outcome Function
+## 5b. Customer Trust Calculation
 
-Contract outcomes are represented as continuous values in the range [-1, 1], allowing for nuanced evaluation beyond simple pass/fail. A value of 1 represents complete success, -1 represents complete failure, and values in between represent partial outcomes. This continuous range acknowledges real-world complexity—a project might be delivered late but with excellent quality, or on time but with minor defects. The discrete special case {-1, 0, 1} (failure, partial, success) can be used for simpler evaluation scenarios. This outcome value is multiplied by the contract's weight to determine its contribution to the agent's trust quotient.
+Customer trust is computed from observable behaviors rather than outcomes assigned by others.
+This creates bidirectional accountability: providers are judged by their work quality,
+customers are judged by their behavior as contract consumers.
+
+**Mathematical notation:**
+$$V_t^{\text{customer}}(\text{Consumer}) = \sum_{c \in h_c} \omega(c) \cdot \text{behavior}(c) \cdot \gamma(c) \cdot \nu(c)$$
+
+**C# Implementation:**
+
+```csharp
+/// <summary>
+/// Calculates customer trust values from behavior profiles.
+/// </summary>
+public static class CustomerTrustCalculator
+{
+    /// <summary>
+    /// Computes commitment trust: completed_projects / initiated_projects.
+    /// High commitment = reliable partner who sees projects through.
+    /// </summary>
+    public static double ComputeCommitmentTrust(CustomerProfile profile)
+    {
+        if (profile == null) return 0.0;
+        return profile.CommitmentRate;
+    }
+
+    /// <summary>
+    /// Computes escrow discipline trust from funding reliability and release promptness.
+    /// </summary>
+    public static double ComputeEscrowTrust(CustomerProfile profile)
+    {
+        if (profile == null) return 0.0;
+
+        // Primary factor: on-time funding rate (70%)
+        double fundingFactor = profile.FundingReliability;
+
+        // Secondary factor: release delay (30%)
+        // Map delay to [0.5, 1.0]: 0 delay = 1.0, 7+ days = 0.5
+        double delayFactor;
+        if (profile.AvgReleaseDelayDays <= 0)
+        {
+            delayFactor = 1.0; // Early or on-time release
+        }
+        else if (profile.AvgReleaseDelayDays >= 7)
+        {
+            delayFactor = 0.5; // 7+ days late = minimum
+        }
+        else
+        {
+            delayFactor = 1.0 - (profile.AvgReleaseDelayDays / 14.0);
+        }
+
+        return (fundingFactor * 0.7) + (delayFactor * 0.3);
+    }
+
+    /// <summary>
+    /// Computes verification integrity trust based on rating variance.
+    /// Ideal variance ~0.35. Too low = rubber-stamping, too high = erratic.
+    /// </summary>
+    public static double ComputeVerificationIntegrity(CustomerProfile profile)
+    {
+        if (profile == null || profile.TotalRatingsGiven == 0) return 0.0;
+
+        double variance = profile.RatingsVariance;
+
+        // Distance from ideal variance
+        double distance = Math.Abs(variance - TrustConstants.IdealRatingVariance);
+        double maxDistance = 0.65; // Max possible distance from ideal
+
+        double normalized = Math.Min(distance / maxDistance, 1.0);
+        double baseIntegrity = 1.0 - normalized;
+
+        // Additional penalties for extreme variance
+        if (variance < TrustConstants.MinRatingVariance)
+        {
+            // Severe penalty for rubber-stamping
+            return baseIntegrity * 0.5;
+        }
+        else if (variance > TrustConstants.MaxRatingVariance)
+        {
+            // Penalty for erratic rating
+            return baseIntegrity * 0.75;
+        }
+
+        return baseIntegrity;
+    }
+
+    /// <summary>
+    /// Computes scope stability trust: tasks_as_planned / total_tasks.
+    /// </summary>
+    public static double ComputeScopeStability(CustomerProfile profile)
+    {
+        if (profile == null) return 0.0;
+        return profile.ScopeStability;
+    }
+
+    /// <summary>
+    /// Computes timeline realism trust from deadline accuracy.
+    /// </summary>
+    public static double ComputeTimelineRealism(CustomerProfile profile)
+    {
+        if (profile == null || profile.TimelineProjectsCount == 0) return 0.0;
+
+        double avgAccuracy = profile.AvgTimelineAccuracy;
+
+        if (avgAccuracy < 0)
+        {
+            // Chronic overruns (bad) - map to [0, 0.5]
+            double overrunPct = Math.Min(Math.Abs(avgAccuracy), 1.0);
+            return (1.0 - overrunPct) * 0.5;
+        }
+        else
+        {
+            // Early/on-time (good) - map to [0.5, 1.0]
+            double bufferPct = Math.Min(avgAccuracy, 1.0);
+            return 0.5 + (bufferPct * 0.5);
+        }
+    }
+
+    /// <summary>
+    /// Computes spec quality trust from implementation outcomes.
+    /// Measures whether specs approved by this customer lead to successful implementations.
+    /// </summary>
+    public static double ComputeSpecQuality(CustomerProfile profile)
+    {
+        if (profile?.ImplementationOutcomes == null || !profile.ImplementationOutcomes.Any())
+            return 0.0;
+
+        double totalWeight = profile.ImplementationOutcomes.Sum(x => x.Weight);
+        if (totalWeight <= 0) return 0.0;
+
+        double weightedSum = profile.ImplementationOutcomes.Sum(x => x.Weight * x.Outcome);
+        return weightedSum / totalWeight;
+    }
+
+    /// <summary>
+    /// Computes customer trust for a specific customer skill type.
+    /// </summary>
+    /// <param name="profile">The customer's behavior profile.</param>
+    /// <param name="skillType">One of CustomerSkillTypes constants.</param>
+    /// <returns>Trust value in range appropriate to the skill type.</returns>
+    public static double ComputeCustomerTrust(CustomerProfile profile, string skillType)
+    {
+        if (profile == null || string.IsNullOrWhiteSpace(skillType))
+            return 0.0;
+
+        return skillType switch
+        {
+            CustomerSkillTypes.Commitment => ComputeCommitmentTrust(profile),
+            CustomerSkillTypes.EscrowDiscipline => ComputeEscrowTrust(profile),
+            CustomerSkillTypes.Verification => ComputeVerificationIntegrity(profile),
+            CustomerSkillTypes.ScopeStability => ComputeScopeStability(profile),
+            CustomerSkillTypes.TimelineRealism => ComputeTimelineRealism(profile),
+            CustomerSkillTypes.SpecQuality => ComputeSpecQuality(profile),
+            _ => 0.0
+        };
+    }
+
+    /// <summary>
+    /// Computes a composite customer trust score across all customer skill types.
+    /// </summary>
+    /// <param name="profile">The customer's behavior profile.</param>
+    /// <param name="weights">Optional weights for each skill type. Defaults to equal weights.</param>
+    /// <returns>Weighted average of all customer trust dimensions.</returns>
+    public static double ComputeCompositeTrust(
+        CustomerProfile profile,
+        Dictionary<string, double>? weights = null)
+    {
+        if (profile == null) return 0.0;
+
+        var defaultWeights = new Dictionary<string, double>
+        {
+            [CustomerSkillTypes.Commitment] = 1.0,
+            [CustomerSkillTypes.EscrowDiscipline] = 1.0,
+            [CustomerSkillTypes.Verification] = 1.0,
+            [CustomerSkillTypes.ScopeStability] = 1.0,
+            [CustomerSkillTypes.TimelineRealism] = 1.0,
+            [CustomerSkillTypes.SpecQuality] = 1.0
+        };
+
+        weights ??= defaultWeights;
+
+        double totalWeight = weights.Values.Sum();
+        if (totalWeight <= 0) return 0.0;
+
+        double weightedSum = weights.Sum(kv =>
+            kv.Value * ComputeCustomerTrust(profile, kv.Key));
+
+        return weightedSum / totalWeight;
+    }
+}
+```
+
+---
+
+## 5c. Verification Weight
+
+The verification weight adjusts how much a customer's rating contributes to a provider's trust.
+Credible, discriminating customers' ratings count more than those from unknown or rubber-stamping customers.
+
+**Mathematical notation:**
+$$\text{verification\_weight}(c) = f\big(V_{\text{verify}}(\text{consumer}), \sigma^2(\text{ratings})\big)$$
+
+**C# Implementation:**
+
+```csharp
+/// <summary>
+/// Calculates verification weights that adjust rating credibility.
+/// </summary>
+public static class VerificationWeightCalculator
+{
+    /// <summary>
+    /// Computes the verification weight for a customer's rating.
+    /// Range approximately [0.5, 1.5].
+    /// </summary>
+    /// <param name="customerVerificationTrust">Customer's verification integrity score [0, 1].</param>
+    /// <param name="customerRatingVariance">Variance of customer's historical ratings.</param>
+    /// <returns>Weight multiplier for the customer's ratings.</returns>
+    public static double ComputeVerificationWeight(
+        double customerVerificationTrust,
+        double customerRatingVariance)
+    {
+        // Base weight from verification trust: maps [0, 1] to [0.5, 1.0]
+        double trustFactor = 0.5 + (customerVerificationTrust * 0.5);
+
+        // Variance factor: penalize extreme variance
+        double varianceFactor;
+        if (customerRatingVariance < TrustConstants.MinRatingVariance)
+        {
+            // Very low variance = rubber-stamping = 0.5x
+            varianceFactor = 0.5;
+        }
+        else if (customerRatingVariance > TrustConstants.MaxRatingVariance)
+        {
+            // Very high variance = erratic = 0.7x
+            varianceFactor = 0.7;
+        }
+        else
+        {
+            // Reasonable variance = full weight
+            varianceFactor = 1.0;
+        }
+
+        return Math.Clamp(
+            trustFactor * varianceFactor,
+            TrustConstants.MinVerificationWeight,
+            TrustConstants.MaxVerificationWeight);
+    }
+
+    /// <summary>
+    /// Computes the adjusted trust contribution for a contract,
+    /// applying verification weight from customer credibility.
+    /// </summary>
+    public static double ComputeAdjustedContribution(
+        Contract contract,
+        CustomerProfile customerProfile)
+    {
+        if (contract == null) return 0.0;
+
+        double baseContribution = contract.Weight * contract.Outcome;
+
+        if (customerProfile == null) return baseContribution;
+
+        double verificationTrust = CustomerTrustCalculator
+            .ComputeVerificationIntegrity(customerProfile);
+        double verificationWeight = ComputeVerificationWeight(
+            verificationTrust,
+            customerProfile.RatingsVariance);
+
+        return baseContribution * verificationWeight;
+    }
+}
+```
+
+---
+
+## 5d. Task Decomposition
+
+Tasks enable granular tracking within phases and team-based implementation.
+Multiple providers can work on different tasks within a single Implementation phase.
+
+**Mathematical notation:**
+$$s_{\text{task}} = s_{\text{phase}} \cdot \frac{w_{\text{task}}}{\sum_{i} w_{\text{task}_i}}$$
+
+**C# Implementation:**
+
+```csharp
+/// <summary>
+/// Utilities for task decomposition calculations.
+/// </summary>
+public static class TaskDecomposition
+{
+    /// <summary>
+    /// Computes the stake allocation for a task within a phase.
+    /// </summary>
+    public static double ComputeTaskStake(
+        double phaseStake,
+        double taskWeight,
+        double totalTaskWeight)
+    {
+        if (totalTaskWeight <= 0) return 0;
+        return phaseStake * (taskWeight / totalTaskWeight);
+    }
+
+    /// <summary>
+    /// Computes planning accuracy from task completion data.
+    /// </summary>
+    public static double ComputePlanningAccuracy(
+        int tasksAsPlanned,
+        int tasksDeviated)
+    {
+        int total = tasksAsPlanned + tasksDeviated;
+        return total == 0 ? 1.0 : (double)tasksAsPlanned / total;
+    }
+
+    /// <summary>
+    /// Aggregates task contributions for all providers in a phase.
+    /// Returns dictionary mapping provider ID to their total contribution.
+    /// </summary>
+    public static Dictionary<Guid, double> AggregateAllProviderContributions(
+        PhaseWithTasks phase)
+    {
+        var result = new Dictionary<Guid, double>();
+        if (phase?.Tasks == null || phase.TotalTaskWeight <= 0)
+            return result;
+
+        foreach (var task in phase.Tasks)
+        {
+            if (task.Provider == null) continue;
+
+            double taskStake = task.ComputeStake(phase.PhaseContract.Stake, phase.TotalTaskWeight);
+            double stakeRatio = phase.PhaseContract.Stake > 0
+                ? taskStake / phase.PhaseContract.Stake
+                : 0;
+            double contribution = phase.PhaseContract.Weight * stakeRatio * task.Outcome;
+
+            if (result.ContainsKey(task.Provider.Id))
+                result[task.Provider.Id] += contribution;
+            else
+                result[task.Provider.Id] = contribution;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates task contracts from a phase contract.
+    /// Each task becomes a sub-subcontract with proportional stake.
+    /// </summary>
+    public static IReadOnlyList<Contract> CreateTaskContracts(
+        PhaseWithTasks phase,
+        IWeightCalculator weightCalculator,
+        DateTime currentTime)
+    {
+        if (phase?.Tasks == null || phase.TotalTaskWeight <= 0)
+            return Array.Empty<Contract>();
+
+        var contracts = new List<Contract>();
+
+        foreach (var task in phase.Tasks)
+        {
+            double taskStake = task.ComputeStake(
+                phase.PhaseContract.Stake,
+                phase.TotalTaskWeight);
+
+            var contract = new Contract
+            {
+                Id = task.Id,
+                Provider = task.Provider,
+                Consumer = phase.PhaseContract.Consumer,
+                SkillType = phase.PhaseContract.SkillType,
+                Stake = taskStake,
+                Difficulty = phase.PhaseContract.Difficulty,
+                Deadline = phase.PhaseContract.Deadline,
+                Outcome = task.Outcome,
+                CompletedAt = task.CompletedAt,
+                Type = ContractType.Task,
+                ParentRef = phase.PhaseContract.Id,
+                TaskWeight = task.Weight,
+                Weight = weightCalculator?.ComputeWeight(
+                    new Contract { Stake = taskStake, Difficulty = phase.PhaseContract.Difficulty },
+                    0,
+                    currentTime) ?? 1.0
+            };
+
+            contracts.Add(contract);
+        }
+
+        return contracts;
+    }
+}
+
+Contract outcomes are represented as continuous values in the range [-1, 1], allowing for nuanced evaluation beyond simple pass/fail. A value of 1 represents complete success, -1 represents complete failure, and values in between represent partial outcomes. This continuous range acknowledges real-world complexityâ€”a project might be delivered late but with excellent quality, or on time but with minor defects. The discrete special case {-1, 0, 1} (failure, partial, success) can be used for simpler evaluation scenarios. This outcome value is multiplied by the contract's weight to determine its contribution to the agent's trust quotient.
 
 **Mathematical notation:**
 $$\text{outcome}(c) \in [-1, 1]$$
@@ -1060,7 +1785,7 @@ public static class OutcomeCalculator
 
 ## 7. Weighting Function
 
-The weighting function determines how much signal each contract contributes to an agent's trust quotient. Not all contracts are created equal—completing a difficult, high-stakes contract for a reputable counterparty should contribute more to your reputation than completing an easy, low-value contract for an unknown entity. The function combines four factors: stake (higher value = more signal), difficulty (harder work = more signal), counterparty trust (endorsement from trusted agents matters more), and recency (recent performance is more relevant than ancient history). The implementation uses logarithmic scaling for stakes, linear scaling for difficulty, sigmoid bounding for counterparty influence, and exponential decay for recency.
+The weighting function determines how much signal each contract contributes to an agent's trust quotient. Not all contracts are created equalâ€”completing a difficult, high-stakes contract for a reputable counterparty should contribute more to your reputation than completing an easy, low-value contract for an unknown entity. The function combines four factors: stake (higher value = more signal), difficulty (harder work = more signal), counterparty trust (endorsement from trusted agents matters more), and recency (recent performance is more relevant than ancient history). The implementation uses logarithmic scaling for stakes, linear scaling for difficulty, sigmoid bounding for counterparty influence, and exponential decay for recency.
 
 **Mathematical notation:**
 $$\omega(c) = f\big(s(c),\ d(c),\ V_t(a_{\text{consumer}}),\ \text{recency}(c)\big)$$
@@ -1080,8 +1805,8 @@ The weight depends on:
 public class WeightCalculator : IWeightCalculator
 {
     /// <summary>
-    /// Computes the weight ω(c) for a contract.
-    /// ω(c) = f(s(c), d(c), V_t(a_consumer), recency(c))
+    /// Computes the weight Ï‰(c) for a contract.
+    /// Ï‰(c) = f(s(c), d(c), V_t(a_consumer), recency(c))
     /// </summary>
     /// <param name="contract">The contract to compute weight for.</param>
     /// <param name="consumerTrustValue">The trust value of the consumer agent.</param>
@@ -1160,7 +1885,7 @@ public class WeightCalculator : IWeightCalculator
 
 ## 8. History Evolution
 
-An agent's contract history grows over time as new contracts are completed. This equation simply states that the history at step n+1 equals the history at step n plus the newly completed contract—a union operation that appends to the immutable record. On a blockchain, this history is tamper-proof and publicly verifiable (though the agent's identity behind the avatar may remain anonymous). The history is partitioned by skill type, so an agent maintains separate, independent histories for each domain they operate in. This separation is what enables the decoupling of reputation from singular identity.
+An agent's contract history grows over time as new contracts are completed. This equation simply states that the history at step n+1 equals the history at step n plus the newly completed contractâ€”a union operation that appends to the immutable record. On a blockchain, this history is tamper-proof and publicly verifiable (though the agent's identity behind the avatar may remain anonymous). The history is partitioned by skill type, so an agent maintains separate, independent histories for each domain they operate in. This separation is what enables the decoupling of reputation from singular identity.
 
 **Mathematical notation:**
 $$h_t^{(n+1)}(a) = h_t^{(n)}(a) \cup \{c_n\}$$
@@ -1254,7 +1979,7 @@ public static class HistoryExtensions
 
 ## 9. Trust Evolution
 
-This equation describes how an agent's trust value updates incrementally as each contract completes. Rather than recomputing the entire sum from scratch, trust evolves by adding the weighted outcome of each new contract to the existing value. This incremental update is more efficient for real-time systems and clearly shows the accumulative nature of trust—each action either adds to or subtracts from your reputation. The `TrustTracker` class maintains cached trust values and updates them as contracts complete, providing an efficient implementation for networks with high transaction volumes.
+This equation describes how an agent's trust value updates incrementally as each contract completes. Rather than recomputing the entire sum from scratch, trust evolves by adding the weighted outcome of each new contract to the existing value. This incremental update is more efficient for real-time systems and clearly shows the accumulative nature of trustâ€”each action either adds to or subtracts from your reputation. The `TrustTracker` class maintains cached trust values and updates them as contracts complete, providing an efficient implementation for networks with high transaction volumes.
 
 **Mathematical notation:**
 $$V_t^{(n+1)}(a) = V_t^{(n)}(a) + \omega(c_n) \cdot \text{outcome}(c_n)$$
@@ -1277,7 +2002,7 @@ public class TrustChangeEvent
 
     public override string ToString() =>
         $"[{Timestamp:u}] Agent {AgentId.ToString().Substring(0, 8)} {SkillType}: " +
-        $"{PreviousTrust:F2} -> {NewTrust:F2} (Δ{Delta:+0.00;-0.00})";
+        $"{PreviousTrust:F2} -> {NewTrust:F2} (Î”{Delta:+0.00;-0.00})";
 }
 
 /// <summary>
@@ -1306,7 +2031,7 @@ public class TrustTracker : ITrustTracker
 
     /// <summary>
     /// Updates trust incrementally when a contract completes.
-    /// V_t^(n+1)(a) = V_t^(n)(a) + ω(c_n) · outcome(c_n)
+    /// V_t^(n+1)(a) = V_t^(n)(a) + Ï‰(c_n) Â· outcome(c_n)
     /// Uses the pre-computed weight stored on the contract for consistency.
     /// </summary>
     /// <param name="agent">The agent whose trust to update.</param>
@@ -1429,7 +2154,7 @@ public class TrustTracker : ITrustTracker
 
 ## 10. Eligibility Function
 
-The eligibility function creates a virtuous cycle in the trust network: higher trust unlocks access to better opportunities. An agent can only bid on a contract if their trust value meets or exceeds the contract's threshold (θ). High-stakes, difficult contracts require higher trust to even participate. This mechanism serves multiple purposes: it protects consumers from unproven agents on critical work, it rewards agents who build genuine trust with access to premium contracts, and it reinforces Sybil resistance—splitting your activity across multiple fake identities means each identity has lower trust, making each eligible for fewer and lower-quality contracts.
+The eligibility function creates a virtuous cycle in the trust network: higher trust unlocks access to better opportunities. An agent can only bid on a contract if their trust value meets or exceeds the contract's threshold (Î¸). High-stakes, difficult contracts require higher trust to even participate. This mechanism serves multiple purposes: it protects consumers from unproven agents on critical work, it rewards agents who build genuine trust with access to premium contracts, and it reinforces Sybil resistanceâ€”splitting your activity across multiple fake identities means each identity has lower trust, making each eligible for fewer and lower-quality contracts.
 
 **Mathematical notation:**
 $$\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$$
@@ -1446,7 +2171,7 @@ public static class EligibilityChecker
 {
     /// <summary>
     /// Determines if an agent is eligible to bid on a contract.
-    /// eligible(a, c) ⟺ V_t(a) ≥ θ(c)
+    /// eligible(a, c) âŸº V_t(a) â‰¥ Î¸(c)
     /// </summary>
     /// <param name="agent">The agent to check eligibility for.</param>
     /// <param name="contract">The contract to check eligibility against.</param>
@@ -1469,7 +2194,7 @@ public static class EligibilityChecker
 
     /// <summary>
     /// Calculates the minimum trust threshold for a contract.
-    /// θ(c) - Higher stakes and difficulty require higher trust.
+    /// Î¸(c) - Higher stakes and difficulty require higher trust.
     /// Includes a minimum threshold based on stake alone to prevent
     /// zero-difficulty contracts from having zero threshold.
     /// </summary>
@@ -1548,7 +2273,7 @@ public static class ContractMarketplace
 
 ## 11. Convergence Criterion (Validation)
 
-Before deploying the trust network to human participants, we can validate it using AI agents in simulation. The convergence criterion measures whether the network's computed trust values actually reflect agents' true reliability. In simulation, we know each agent's actual reliability (R)—their programmed probability of successful delivery. As the network accumulates history, the correlation between computed trust (V) and actual reliability (R) should approach 1.0. When this correlation is high (e.g., >0.95), the trust mathematics are working correctly—the network successfully discovers who's genuinely capable based purely on observed actions, without any identity information.
+Before deploying the trust network to human participants, we can validate it using AI agents in simulation. The convergence criterion measures whether the network's computed trust values actually reflect agents' true reliability. In simulation, we know each agent's actual reliability (R)â€”their programmed probability of successful delivery. As the network accumulates history, the correlation between computed trust (V) and actual reliability (R) should approach 1.0. When this correlation is high (e.g., >0.95), the trust mathematics are working correctlyâ€”the network successfully discovers who's genuinely capable based purely on observed actions, without any identity information.
 
 **Mathematical notation:**
 $$\lim_{n \to \infty} \text{Corr}\big(V_t^{(n)}(a), R_t(a)\big) = 1$$
@@ -1565,7 +2290,7 @@ public static class NetworkValidator
 {
     /// <summary>
     /// Measures how well trust values correlate with actual reliability.
-    /// lim(n→∞) Corr(V_t^(n)(a), R_t(a)) = 1 indicates validation.
+    /// lim(nâ†’âˆž) Corr(V_t^(n)(a), R_t(a)) = 1 indicates validation.
     /// </summary>
     /// <param name="agents">The agents to analyze.</param>
     /// <param name="getActualReliability">Function to get actual reliability (known in simulation).</param>
@@ -1653,7 +2378,7 @@ public static class NetworkValidator
     /// </returns>
     /// <remarks>
     /// Zero variance case: If all trust values are identical (e.g., all agents have 0 trust),
-    /// the denominator becomes 0 and NaN is returned. This is mathematically correct—
+    /// the denominator becomes 0 and NaN is returned. This is mathematically correctâ€”
     /// correlation is undefined when there's no variation to correlate.
     /// </remarks>
     private static double PearsonCorrelation(
@@ -1724,7 +2449,7 @@ public class SimulationValidator
 
 ## 12. Sybil Resistance
 
-A Sybil attack occurs when a malicious actor creates multiple fake identities to game a reputation system—for example, creating sock-puppet accounts to inflate ratings. The Quantum of Trust framework has built-in Sybil resistance through its economic structure. If an attacker splits their activity across k fake identities, each identity accumulates only 1/k of the history that an honest agent would build. Less history means lower trust. Lower trust means eligibility for fewer and lower-quality contracts. The economics favor consolidation of reputation over fragmentation—you're better off building genuine trust through a single agent than spreading thin across multiple sybils. This inequality formalizes that insight: an honest agent's history size will always exceed any individual sybil's history.
+A Sybil attack occurs when a malicious actor creates multiple fake identities to game a reputation systemâ€”for example, creating sock-puppet accounts to inflate ratings. The Quantum of Trust framework has built-in Sybil resistance through its economic structure. If an attacker splits their activity across k fake identities, each identity accumulates only 1/k of the history that an honest agent would build. Less history means lower trust. Lower trust means eligibility for fewer and lower-quality contracts. The economics favor consolidation of reputation over fragmentationâ€”you're better off building genuine trust through a single agent than spreading thin across multiple sybils. This inequality formalizes that insight: an honest agent's history size will always exceed any individual sybil's history.
 
 **Mathematical notation:**
 $$|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})| \quad \forall i$$
@@ -1819,7 +2544,7 @@ public static class SybilResistanceAnalyzer
             return 0.0;
 
         // Both negative: less negative is better
-        // honestTrust = -10, maxSybilTrust = -20 → honest is "better"
+        // honestTrust = -10, maxSybilTrust = -20 â†’ honest is "better"
         // Ratio = -20 / -10 = 2.0 (honest is 2x better)
         if (maxSybilTrust < 0 && honestTrust < 0)
         {
@@ -2158,7 +2883,8 @@ namespace QuantumOfTrust
 | $q\langle T \rangle$ | `QuantumOfTrust` (abstract base class implementing `IQuantumOfTrust`) |
 | $\text{Agent}(t, h_t)$ | `Agent` class with `SkillType`, `IReadOnlyList<Contract> ContractHistory`, and `IEquatable<Agent>` |
 | $\text{DAO}(\{q\langle T \rangle\})$ | `DAO` class with `HashSet<QuantumOfTrust>`, nullable `Phi`, cycle detection, and `IEquatable<DAO>` |
-| $V_t(q)$ | `ComputeTrustValue(string skillType)` with case-insensitive skill matching |
+| $V_t^{\text{provider}}(q)$ | `ComputeTrustValue(string skillType)` with case-insensitive skill matching |
+| $V_t^{\text{customer}}(q)$ | `CustomerTrustCalculator.ComputeCustomerTrust()` family of methods |
 | $\sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c)$ | LINQ `.Sum(c => c.Weight * c.Outcome)` |
 | $\Phi(\{V_t(q) : q \in S\})$ | `Func<IEnumerable<double>, double>? Phi` with null checks and materialization |
 | $h_t^{(n+1)} = h_t^{(n)} \cup \{c_n\}$ | `AddToHistory(Contract)` with null validation |
@@ -2166,13 +2892,39 @@ namespace QuantumOfTrust
 | $\omega(c) = f(s, d, V_t, \text{recency})$ | `WeightCalculator.ComputeWeight()` with all constants defined |
 | $\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$ | `EligibilityChecker.IsEligible()` with minimum threshold |
 | $\text{Corr}(V_t^{(n)}, R_t)$ | `NetworkValidator.CalculateConvergence()` with documented edge cases |
-| $|h_t(a_{\text{honest}})| > |h_t(a_{\text{sybil}_i})|$ | `SybilResistanceAnalyzer` with correct advantage ratio for negative values |
+| $\|h_t(a_{\text{honest}})\| > \|h_t(a_{\text{sybil}_i})\|$ | `SybilResistanceAnalyzer` with correct advantage ratio for negative values |
+| $\text{verification\_weight}(c)$ | `VerificationWeightCalculator.ComputeVerificationWeight()` |
+| $s_{\text{task}} = s_{\text{phase}} \cdot \frac{w}{\sum w}$ | `TaskDecomposition.ComputeTaskStake()` |
+| $\text{planning\_accuracy}$ | `TaskDecomposition.ComputePlanningAccuracy()` or `Contract.PlanningAccuracy` |
+| Customer skill types | `CustomerSkillTypes` constants + `CustomerProfile` class |
+
+---
+
+## Key Architectural Additions (Pass 4)
+
+### Bidirectional Trust
+- ✅ `CustomerProfile` class captures customer behavior metrics
+- ✅ `CustomerTrustCalculator` computes trust from 6 customer skill types
+- ✅ `CustomerSkillTypes` constants define customer skill dimensions
+- ✅ Customers judged by behavior, not assigned outcomes
+
+### Verification Weight
+- ✅ `VerificationWeightCalculator` adjusts rating credibility
+- ✅ Customer verification integrity affects how much their ratings count
+- ✅ Rating variance used to detect rubber-stamping or erratic behavior
+
+### Task Decomposition
+- ✅ `Task` class for sub-subcontracts within phases
+- ✅ `PhaseWithTasks` enables team-based implementation
+- ✅ `TaskDecomposition` utilities for stake allocation
+- ✅ `ContractType` enum for hierarchical classification
+- ✅ `Contract` extended with hierarchical fields (Type, ParentRef, TaskWeight, etc.)
 
 ---
 
 ## All Fixes Applied
 
-This document incorporates all fixes from three code review passes:
+This document incorporates all fixes from four code review passes:
 
 ### Pass 1 Fixes (8 errors, 13 improvements)
 - ✅ Consolidated `Agent` class with `IReadOnlyList<Contract>` for history
@@ -2216,3 +2968,14 @@ This document incorporates all fixes from three code review passes:
 - ✅ `Contract.Id` for tracking
 - ✅ `TrustChangeEvent` audit log
 - ✅ Pearson correlation edge cases documented
+
+### Pass 4 Additions (Bidirectional Trust & Task Decomposition)
+- ✅ `CustomerSkillTypes` constants for customer behavior dimensions
+- ✅ `ContractType` enum for hierarchical contract classification
+- ✅ `Contract` extended with Type, ParentRef, TaskWeight, planning fields
+- ✅ `Task` class for sub-subcontracts with provider assignment
+- ✅ `PhaseWithTasks` for team-based implementation
+- ✅ `CustomerProfile` class for customer behavior metrics
+- ✅ `CustomerTrustCalculator` with 6 skill-specific computation methods
+- ✅ `VerificationWeightCalculator` for rating credibility adjustment
+- ✅ `TaskDecomposition` utilities for stake allocation and aggregation
