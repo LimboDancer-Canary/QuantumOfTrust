@@ -398,7 +398,7 @@ This creates incentive for accurate estimation—providers known for good calibr
 
 The customer's contribution to estimation accuracy is **scope stability**. Already tracked as `customer:scope`:
 
-$$\text{scope\_stability} = \frac{\text{tasks\_as\_planned}}{\text{total\_tasks}}$$
+$$\text{scope stability} = \frac{\text{tasks as planned}}{\text{total tasks}}$$
 
 A customer who constantly changes scope makes difficulty estimation impossible. Low scope stability is the customer's "fault" in estimation failures.
 
