@@ -1137,6 +1137,13 @@ public class Task
     /// <summary>Task weight for proportional stake allocation.</summary>
     public double Weight { get; init; } = 1.0;
 
+    /// <summary>
+    /// Difficulty rating for this task (0-10).
+    /// Assessed by the provider at contract acceptance.
+    /// Phase difficulty aggregates from task difficulties via stake-weighted average.
+    /// </summary>
+    public double Difficulty { get; init; } = 5.0;
+
     /// <summary>Outcome of this specific task [-1, 1].</summary>
     public double Outcome { get; init; }
 
@@ -1201,6 +1208,30 @@ public class PhaseWithTasks
 
         double weightedSum = Tasks.Sum(t => t.Weight * t.Outcome);
         return weightedSum / TotalTaskWeight;
+    }
+
+    /// <summary>
+    /// Computes the aggregate phase difficulty from task difficulties.
+    /// Phase difficulty = stake-weighted average of task difficulties.
+    /// d_phase = Σ(d_task × s_task) / Σ(s_task)
+    /// </summary>
+    /// <remarks>
+    /// Task difficulty is assessed by the provider at contract acceptance.
+    /// Tasks come from the Planning phase (customer's responsibility).
+    /// The provider can request task refinement before accepting if tasks
+    /// are too vague to assess difficulty confidently.
+    /// See: The_Difficulty_of_Assessing_Difficulty.md
+    /// </remarks>
+    public double ComputeAggregateDifficulty()
+    {
+        if (TotalTaskWeight <= 0) return 0;
+
+        double totalStake = Tasks.Sum(t => t.ComputeStake(PhaseContract.Stake, TotalTaskWeight));
+        if (totalStake <= 0) return 0;
+
+        double weightedSum = Tasks.Sum(t => 
+            t.Difficulty * t.ComputeStake(PhaseContract.Stake, TotalTaskWeight));
+        return weightedSum / totalStake;
     }
 }
 
@@ -1677,7 +1708,7 @@ public static class TaskDecomposition
                 Consumer = phase.PhaseContract.Consumer,
                 SkillType = phase.PhaseContract.SkillType,
                 Stake = taskStake,
-                Difficulty = phase.PhaseContract.Difficulty,
+                Difficulty = task.Difficulty,  // Use task-level difficulty
                 Deadline = phase.PhaseContract.Deadline,
                 Outcome = task.Outcome,
                 CompletedAt = task.CompletedAt,
@@ -1685,7 +1716,7 @@ public static class TaskDecomposition
                 ParentRef = phase.PhaseContract.Id,
                 TaskWeight = task.Weight,
                 Weight = weightCalculator?.ComputeWeight(
-                    new Contract { Stake = taskStake, Difficulty = phase.PhaseContract.Difficulty },
+                    new Contract { Stake = taskStake, Difficulty = task.Difficulty },
                     0,
                     currentTime) ?? 1.0
             };
@@ -2895,6 +2926,7 @@ namespace QuantumOfTrust
 | $\|h_t(a_{\text{honest}})\| > \|h_t(a_{\text{sybil}_i})\|$ | `SybilResistanceAnalyzer` with correct advantage ratio for negative values |
 | $\text{verification\_weight}(c)$ | `VerificationWeightCalculator.ComputeVerificationWeight()` |
 | $s_{\text{task}} = s_{\text{phase}} \cdot \frac{w}{\sum w}$ | `TaskDecomposition.ComputeTaskStake()` |
+| $d_{\text{phase}} = \frac{\sum d_{\text{task}} \cdot s_{\text{task}}}{\sum s_{\text{task}}}$ | `PhaseWithTasks.ComputeAggregateDifficulty()` |
 | $\text{planning\_accuracy}$ | `TaskDecomposition.ComputePlanningAccuracy()` or `Contract.PlanningAccuracy` |
 | Customer skill types | `CustomerSkillTypes` constants + `CustomerProfile` class |
 
@@ -2915,7 +2947,9 @@ namespace QuantumOfTrust
 
 ### Task Decomposition
 - ✅ `Task` class for sub-subcontracts within phases
+- ✅ `Task.Difficulty` property for provider-assessed task difficulty
 - ✅ `PhaseWithTasks` enables team-based implementation
+- ✅ `PhaseWithTasks.ComputeAggregateDifficulty()` for stake-weighted difficulty aggregation
 - ✅ `TaskDecomposition` utilities for stake allocation
 - ✅ `ContractType` enum for hierarchical classification
 - ✅ `Contract` extended with hierarchical fields (Type, ParentRef, TaskWeight, etc.)

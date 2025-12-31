@@ -133,6 +133,20 @@ Project -> Phases (Subcontracts) -> Tasks (Sub-Subcontracts)
 
 Each task is a contract with its own provider, enabling team-based implementation where different providers handle different tasks within a single phase.
 
+### Difficulty Assessment
+
+Difficulty flows through the subcontract hierarchy:
+
+1. **Tasks**: Provider assesses difficulty (0-10) at contract acceptance
+2. **Phases**: Difficulty aggregates from tasks via stake-weighted average
+3. **Projects**: Difficulty aggregates from phases via stake-weighted average
+
+```
+d_phase = Σ(d_task × s_task) / Σ(s_task)
+```
+
+Tasks come from the Planning phase (customer's responsibility). The Implementation provider reviews tasks at acceptance and can request refinement before committing. Both parties have incentive for accurate ratings—incorrect difficulty leads to failed tasks, affecting trust for both provider and customer.
+
 ### Customer Trust
 
 Customers are trust-bearing entities. Bidirectional trust emerges naturally:
@@ -143,6 +157,7 @@ Customers are trust-bearing entities. Bidirectional trust emerges naturally:
 
 ## Related Documents
 
+- **The_Difficulty_of_Assessing_Difficulty.md** -- How difficulty ratings are determined at the task level
 - **Quantum_of_Trust_Equations_in_CSharp.md** -- Full implementation with Task, CustomerProfile, CustomerTrustCalculator
 - **Quantum_of_Trust_Equations_in_Noir.md** -- ZK circuit implementation
 - **QuantumOfTrustTests.md** -- Test specifications including hierarchical contracts

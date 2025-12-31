@@ -1,4 +1,4 @@
-# Transforming Nostria into a Professional Network with QoT Mechanics
+# Extending Nostria with QoT Professional Network Pages
 
 *An analysis of client-side UX for Quantum of Trust as professional infrastructure*
 
@@ -189,7 +189,6 @@ Just as providers earn trust from contract outcomes, **customers earn trust from
   From: Acme Corp                                                    
   Skill Type: TypeScript Development                                 
   Stake: 5,000 sats                                                  
-  Difficulty: 7/10                                                   
   Deadline: 30 days                                                  
                                                                      
     
@@ -206,11 +205,13 @@ Just as providers earn trust from contract outcomes, **customers earn trust from
       (Their ratings count 85% due to verification integrity)      
     
                                                                      
-  [Accept Contract]  [Negotiate]  [Decline]                          
+  [View Tasks]  [Accept & Assess Difficulty]  [Decline]              
 
 ```
 
-**Key insight:** Providers can make informed decisions about customers just as customers evaluate providers. The **verification weight** shows how much this customer eventual rating will countrubber-stamping or erratic customers have reduced influence on provider trust.
+**Key insight:** Providers can make informed decisions about customers just as customers evaluate providers. The **verification weight** shows how much this customer's eventual rating will count—rubber-stamping or erratic customers have reduced influence on provider trust.
+
+**Note on difficulty:** The contract offer does not include a difficulty rating. Difficulty is assessed at the task level by the provider during acceptance. The provider reviews the task breakdown (from the Planning phase), assesses difficulty for each task, and can request task refinement before committing. See [The Difficulty of Assessing Difficulty](./The_Difficulty_of_Assessing_Difficulty.md).
 
 
 ### Endorsements -> Removed (Contract Outcomes Are Sufficient)
@@ -278,14 +279,14 @@ Verification is different--it's the customer's acceptance mechanism that determi
 
 **Multi-provider contracts**: Different Avatars may perform different phases. Each phase has its own provider who earns trust for that skill.
 
-**Verification is special**: The customer (or their delegate) performs verification. This is the acceptance mechanism that determines the implementation outcome--not a trust-earning phase for a provider.
+**Verification is special**: The customer (or their delegate) performs verification. This is the acceptance mechanism that determines the implementation outcome—not a trust-earning phase for a provider. However, the customer earns trust from their verification integrity (how well they rate).
 
 ```
 c_phased = (
   consumer: a_customer,
   s,                   // Total stake  
-  d,                   // Overall difficulty
-  ,                   // Escrow commitment
+  d,                   // Aggregate difficulty (from task difficulties)
+  τ,                   // Escrow commitment
   V_consumer,          // Consumer's trust at contract creation
   
   phases: [
@@ -333,7 +334,7 @@ c_phased = (
 - `a_business_analyst` earns trust in `t_requirements`
 - `a_architect` earns trust in `t_architecture`  
 - `a_developer` earns trust in `t_development`
-- `a_customer` earns no trust from this contract (they are the consumer)
+- `a_customer` earns trust from their behavior: commitment (completing vs abandoning), escrow discipline (timely funding/release), verification integrity (rating quality), and scope stability
 - If customer delegates verification, that's either internal (no trust flow) or a separate contract
 
 **What flows into trust calculations:**
@@ -418,7 +419,7 @@ Each phase requires sign-off from that phase's provider AND the consumer. This c
 
 **6. Verification as Acceptance Mechanism**
 
-The consumer (or delegate) performs verification. This determines the implementation outcome but doesn't itself earn trust--it's the customer exercising quality control, not a provider delivering work.
+The consumer (or delegate) performs verification. This determines the implementation outcome. Verification is not a trust-earning phase like provider work, but customers earn trust from verification integrity—how discriminatingly and fairly they rate.
 
 ### Phase State Machine (Trust-Relevant Transitions Only)
 
@@ -693,20 +694,21 @@ When an Implementation phase has multiple providers via task decomposition:
 
                                                                      
   IMPLEMENTATION PHASE  Team Roster                                 
-  Total Stake: 3,000 sats . Difficulty: 8/10 . Deadline: Mar 15     
+  Total Stake: 3,000 sats . Deadline: Mar 15                        
+  Phase Difficulty: 7.2 (aggregate from tasks)                       
                                                                      
     
     TASK ASSIGNMENTS                                               
                                                                    
-    Task                    Provider      Weight  Status           
+    Task                    Provider   Difficulty  Weight  Status   
        
-    WebSocket Handler       Alice         2.0      Complete      
+    WebSocket Handler       Alice         8         2.0    Complete 
       Stake: 1,200 sats . Outcome: +0.95                           
                                                                    
-    Event Storage           Bob           2.0      In Progress   
+    Event Storage           Bob           7         2.0    In Progress
       Stake: 1,200 sats . 67% complete                             
                                                                    
-    NIP-01 Compliance       Alice         1.0      Pending       
+    NIP-01 Compliance       Alice         6         1.0    Pending  
       Stake: 600 sats                                              
                                                                    
     
@@ -728,10 +730,247 @@ When an Implementation phase has multiple providers via task decomposition:
 
 **Key team implementation properties:**
 - Each task is a sub-subcontract with its own provider
+- Each task has its own difficulty rating (assessed by the task provider at acceptance)
+- Phase difficulty aggregates from task difficulties via stake-weighted average
 - Stake distributes proportionally to task weight
 - Each provider earns trust only from their assigned tasks
 - Task completion status tracked independently
 - Planning accuracy measured against original task breakdown
+
+### Flow 6: Provider Acceptance (Difficulty Assessment)
+
+When a provider considers accepting an Implementation contract, they review the task breakdown from the Planning phase and assess difficulty for each task.
+
+```
+
+  PROVIDER ACCEPTANCE                                                 
+                                                                     
+  Contract: Authentication System Implementation                      
+  Customer: Acme Corp (78/100 trust)                                 
+  Phase Stake: 5,000 sats . Deadline: 30 days                        
+                                                                     
+    
+    TASK BREAKDOWN (from Planning phase)                            
+                                                                    
+    Task                          Stake    Your Difficulty Rating   
+       
+    T1: Database schema design     500        [ 3 ] ▼               
+    T2: Password hashing impl      750        [ 4 ] ▼               
+    T3: Session management       1,000        [ 5 ] ▼               
+    T4: OAuth2 integration       1,250        [ 7 ] ▼               
+    T5: Rate limiting              750        [ 4 ] ▼               
+    T6: Security audit             750        [ 6 ] ▼               
+                                                                    
+    
+                                                                     
+  AGGREGATE DIFFICULTY: 5.05                                         
+    (stake-weighted average of task difficulties)                    
+                                                                     
+  THRESHOLD: 32.4 cutes                                              
+    Your TypeScript trust: 78.3 cutes ✓ Eligible                    
+                                                                     
+  [Request Task Refinement]  [Accept Contract]  [Decline]            
+
+```
+
+**Key elements:**
+- Tasks come from Planning phase (customer's responsibility)
+- Provider inputs difficulty (0-10) for each task based on their expertise
+- Aggregate difficulty calculated automatically (stake-weighted average)
+- Threshold updates based on aggregate difficulty
+- Provider can request refinement if tasks are too vague
+
+### Flow 7: Task Refinement Request
+
+If a provider identifies tasks that are too vague or too broad to assess accurately, they can request refinement before accepting.
+
+```
+
+  TASK REFINEMENT REQUEST                                            
+                                                                     
+  Contract: Authentication System Implementation                      
+  To: Acme Corp                                                      
+                                                                     
+    
+    TASKS REQUIRING REFINEMENT                                      
+                                                                    
+    T4: OAuth2 integration (1,250 sats)                             
+                                                                    
+    Provider's concern:                                              
+    ┌─────────────────────────────────────────────────────────────┐ 
+    │ This task is too broad to assess accurately. OAuth2 has     │ 
+    │ many variations. I need this broken into subtasks:          │ 
+    │                                                             │ 
+    │ Suggested breakdown:                                        │ 
+    │ • T4a: OAuth2 flow for Google                               │ 
+    │ • T4b: OAuth2 flow for GitHub                               │ 
+    │ • T4c: Token refresh handling                               │ 
+    │ • T4d: Error handling and edge cases                        │ 
+    └─────────────────────────────────────────────────────────────┘ 
+                                                                    
+    
+                                                                     
+  [Send Refinement Request]  [Cancel]                                
+
+```
+
+**What happens next:**
+- Customer receives request with provider's suggested breakdown
+- Customer can accept suggestions, propose alternatives, or negotiate as-is
+- Contract remains pending until refinement is resolved
+- Provider can decline if customer refuses reasonable refinement
+
+### Flow 8: Task Refinement Response (Customer)
+
+Customer responds to provider's refinement request.
+
+```
+
+  TASK REFINEMENT RESPONSE                                           
+                                                                     
+  Contract: Authentication System Implementation                      
+  From: DevAlice (Provider)                                          
+                                                                     
+    
+    REFINEMENT REQUEST                                              
+                                                                    
+    Task: T4: OAuth2 integration (1,250 sats)                       
+                                                                    
+    Provider requested breakdown into:                               
+    • T4a: OAuth2 flow for Google                                   
+    • T4b: OAuth2 flow for GitHub                                   
+    • T4c: Token refresh handling                                   
+    • T4d: Error handling and edge cases                            
+                                                                    
+    
+                                                                     
+  YOUR RESPONSE                                                      
+                                                                     
+  ( ) Accept suggested breakdown                                     
+      └─ Reallocate 1,250 sats across 4 subtasks                    
+                                                                     
+  ( ) Propose alternative breakdown                                  
+      └─ [Define your own subtasks]                                 
+                                                                     
+  ( ) Keep task as-is                                                
+      └─ Provider may decline the contract                          
+                                                                     
+  [Send Response]                                                    
+
+```
+
+**Outcomes:**
+- **Accept**: Planning phase amended with subtasks; provider re-reviews
+- **Alternative**: Counter-proposal sent to provider for review
+- **Keep as-is**: Provider decides whether to accept the risk or decline
+
+### Flow 9: Contract Amendment (Mid-Contract)
+
+During implementation, discovered complexity requires adding new tasks.
+
+```
+
+  CONTRACT AMENDMENT                                                  
+                                                                     
+  Contract: Authentication System Implementation                      
+  Status: In Progress (4/6 tasks complete)                           
+                                                                     
+    
+    PROPOSED AMENDMENT                                              
+                                                                    
+    Reason: Discovered complexity                                    
+    ┌─────────────────────────────────────────────────────────────┐ 
+    │ SAML integration required for enterprise SSO support.       │ 
+    │ This was not in original scope but is necessary for the     │ 
+    │ authentication system to work with customer's IdP.          │ 
+    └─────────────────────────────────────────────────────────────┘ 
+                                                                    
+    NEW TASKS                                                        
+                                                                    
+    Task                       Stake    Difficulty    Provider      
+       
+    T7: SAML assertion parsing   400        5         DevAlice     
+    T8: IdP metadata handling    350        4         DevAlice     
+                                                                    
+    Additional stake required: 750 sats                              
+    
+                                                                     
+  IMPACT                                                             
+                                                                     
+    Original phase difficulty: 5.05                                  
+    Amended phase difficulty:  5.12                                  
+                                                                     
+    Planning accuracy impact: Will show 8 total tasks vs 6 planned   
+      (Architect's planning accuracy affected)                       
+                                                                     
+  [Approve Amendment]  [Reject]  [Negotiate]                         
+
+```
+
+**Key properties:**
+- New tasks are new sub-subcontracts with their own difficulty ratings
+- Original tasks retain original ratings
+- Phase aggregate recalculates to include new tasks
+- Planning accuracy tracked (affects architect's trust if they did planning)
+- Both parties must approve amendment
+
+### Flow 10: Provider Calibration View
+
+Providers can view their difficulty estimation accuracy over time.
+
+```
+
+  PROVIDER CALIBRATION                                               
+                                                                     
+  DevAlice's Estimation History                                      
+                                                                     
+    
+    CALIBRATION SCORE: 82/100                                       
+                                                                    
+    "Your difficulty estimates are generally accurate.              
+     You slightly underestimate complex integration tasks."          
+                                                                    
+    
+                                                                     
+  ESTIMATION ACCURACY BY OUTCOME                                     
+                                                                     
+    On-time, good outcome     ████████████████████  67%  Accurate   
+    Late, good outcome        ████████              27%  Underest.  
+    Early, trivial effort     ██                     6%  Overest.   
+    Failed despite trust      ░                      0%  Severe     
+                                                                     
+    
+    ACCURACY BY TASK TYPE                                           
+                                                                    
+    Task Category          Est. Avg   Actual Avg   Calibration     
+       
+    Database work             4.2        4.0         +0.2  ●        
+    API integration           5.5        6.8         -1.3  ◐        
+    UI components             3.8        3.5         +0.3  ●        
+    Security/auth             6.2        7.1         -0.9  ◐        
+                                                                    
+    ● Well-calibrated  ◐ Tends to underestimate  ○ Tends to overest.
+    
+                                                                     
+  RECENT ESTIMATES                                                   
+                                                                     
+    Task                    Your Est.  Actual   Outcome              
+       
+    OAuth2 Google flow          6        6      On-time ✓           
+    SAML parsing                5        7      Late (good) ◐       
+    Session management          5        5      On-time ✓           
+    Rate limiting               4        4      Early ●             
+                                                                     
+  Calibration affects how customers evaluate your estimates.         
+  Well-calibrated providers are more attractive for complex work.    
+
+```
+
+**Why this matters:**
+- Providers known for good calibration become more attractive to customers
+- Creates incentive for honest, accurate estimation
+- Tracks patterns (e.g., "tends to underestimate security work")
+- Could become a tracked skill type: `V_calibration(provider)`
 
 ---
 
@@ -959,35 +1198,63 @@ skill_taxonomy: {
 
 ---
 
-## Part Seven: Nostria-Specific Considerations
+## Part Seven: Nostria Integration Architecture
 
-Looking at the screenshots:
+### Design Principle: Separate Pages
 
-**What Nostria already has**:
+QoT functionality lives on **separate pages** from existing Nostria features, not as modifications to existing pages. This approach:
+
+- **Preserves existing UX**: Users familiar with Nostria see no changes to their current experience
+- **Enables independent evolution**: QoT workflows can evolve without affecting core social features
+- **Maintains clear context**: Professional/contract context is distinct from social context
+- **Simplifies development**: New pages can be built without modifying existing codebase
+
+QoT pages may borrow UI conventions (styling, navigation patterns, component designs) to maintain visual continuity, but they are architecturally separate.
+
+### What Nostria Already Has
+
+Existing pages (unchanged):
 - Profile with npub, NIP-05, Lightning
 - Posts/notes feed
 - Media sharing
 - Follow graph
+- Direct messages
 
-**What would need to be added**:
-- Trust score display per skill domain
-- Contract history section
-- Phase approval UI
-- Eligibility proof generation
-- Contract marketplace
-- DAO profiles
-- Trust dashboard
+### New QoT Pages
 
-**Integration points**:
-- **Zaps -> Contract payments**: Lightning zaps could fund escrow
-- **Notes -> Project updates**: Posts could be tied to contract phases
-- **DMs -> Contract negotiation**: NIP-17 for private contract discussion
+Separate pages to be added:
+
+| Page | Purpose |
+|------|---------|
+| **Trust Dashboard** | View own trust scores per skill, contract history, verification status |
+| **Avatar Public Profile** | Public view of skill-scoped trust (aggregate only, privacy-preserving) |
+| **Contract Marketplace** | Browse available contracts, filter by eligibility |
+| **Contract Detail** | View contract terms, accept/negotiate, track progress |
+| **Provider Acceptance** | Review tasks, assess difficulty, request refinement, accept contract |
+| **Task Refinement Request** | Provider requests customer break down vague/broad tasks |
+| **Task Refinement Response** | Customer responds with refined breakdown or negotiates as-is |
+| **Contract Amendment** | Mid-contract: add new tasks with difficulty ratings for discovered complexity |
+| **Phase Approval** | Mutual sign-off workflow for phase completion |
+| **Project View** | Multi-phase project coordination, task assignments |
+| **DAO Profile** | Organizational trust aggregation, member roster |
+| **Eligibility Proof** | Generate and share ZK proofs for specific thresholds |
+| **Customer Dashboard** | Customer-specific metrics (for providers evaluating customers) |
+| **Provider Calibration View** | Track provider's estimation accuracy history |
+
+### Integration Points
+
+QoT pages connect to Nostria through:
+- **Shared identity**: Same npub/keypair, NIP-05 verification
+- **Lightning integration**: Zaps infrastructure for escrow funding
+- **DMs (NIP-17)**: Private contract negotiation
+- **Navigation**: QoT section in main navigation
+- **Visual consistency**: Shared design language
 
 ---
 
 ## Conclusion
 
-The vision of "Nostria as LinkedIn with QoT" is architecturally coherent. The key insight is that LinkedIn's value--professional reputation enabling opportunity access--can be delivered *better* with QoT:
+The vision of extending Nostria with QoT professional network pages is architecturally coherent. The key insight is that LinkedIn's value—professional reputation enabling opportunity access—can be delivered *better* with QoT:
 
 | LinkedIn | QoT Professional Network |
 |----------|---------------------------|
@@ -1019,7 +1286,7 @@ Key design decisions that distinguish QoT from traditional professional networks
 | Decision | Rationale |
 |----------|-----------|
 | **Multi-provider contracts** | Different Avatars can perform different phases. Each earns trust for their contribution independently. Enables specialist collaboration. |
-| **Verification is acceptance, not work** | The customer (or delegate) performs verification. This determines implementation outcome but doesn't earn trust--it's quality control, not provider delivery. |
+| **Verification is acceptance, not work** | The customer (or delegate) performs verification. This determines implementation outcome. Verification is not a trust-earning phase like provider work, but customers earn trust from verification integrity (how well they rate). |
 | **QA earns trust via separate contracts** | Quality Assurance is a valid skill type. QA professionals contract directly with customers to provide testing services. They earn QA trust from that contract, not as a phase within the build contract. |
 | **Three trust-earning phases** | Specification, Planning, Implementation. Each has a provider who earns trust. Verification is the customer's acceptance mechanism. |
 | **No endorsements** | Contract outcomes ARE attestations. Separate endorsements are either redundant (counterparty-only) or gameable (open to anyone). The mutual sign-off on phase completion is the verification. |
@@ -1034,3 +1301,14 @@ Key design decisions that distinguish QoT from traditional professional networks
 | **Verification weight** | Customer credibility affects how much their ratings count. Rubber-stamping (low variance) or erratic (high variance) customers have reduced influence. |
 | **Team-based implementation** | Tasks within phases can have different providers. Each team member earns trust from their assigned tasks independently. Enables specialist collaboration at the task level. |
 | **Customer trust dashboard** | Providers see customer metrics (commitment rate, escrow discipline, scope stability) before accepting contracts. Creates informed matching. |
+| **Task-level difficulty assessment** | Difficulty is assessed at the task level by the provider at acceptance, not set by the customer. Phase difficulty aggregates from task difficulties. Both parties have incentive for accuracy—incorrect ratings lead to failed tasks affecting both. |
+
+---
+
+## Related Documents
+
+- **The_Difficulty_of_Assessing_Difficulty.md** — How difficulty ratings are determined at the task level
+- **ADR_Subcontract_Architecture.md** — Multi-phase contract decomposition
+- **ADR_No_Endorsements.md** — Why contract outcomes replace attestations
+- **Quantum_of_Trust_Equations_in_CSharp.md** — Implementation with Task, PhaseWithTasks, CustomerProfile
+- **Quantum_of_Trust_Equations_in_Noir.md** — ZK circuit implementation

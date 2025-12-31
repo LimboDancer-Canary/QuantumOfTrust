@@ -895,6 +895,13 @@ struct Contract {
     stake: Field,
     
     /// Difficulty rating from 0 (trivial) to 10 (extremely difficult).
+    /// 
+    /// Assessed by the provider at contract acceptance. For task-level contracts
+    /// (sub-subcontracts), difficulty is set by the task provider. Phase difficulty
+    /// aggregates from task difficulties via stake-weighted average (computed off-circuit):
+    /// d_phase = Σ(d_task × s_task) / Σ(s_task)
+    /// 
+    /// See: The_Difficulty_of_Assessing_Difficulty.md
     difficulty: Field,
     
     /// Outcome stored as offset: 0=-100 (failure), 100=0 (partial), 200=+100 (success).
@@ -3056,6 +3063,7 @@ fn test_aggregate_empty() {
 | $\omega(c) = f(s, d, V_t, \text{recency})$ | `compute_weight()` or pre-computed in `Contract.weight` |
 | $\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$ | `prove_eligibility()` -- THE core circuit |
 | $\theta(c) = \log(1+s) \cdot d$ | `calculate_threshold()` with `approx_log1p()` |
+| $d_{\text{phase}} = \frac{\sum d_{\text{task}} \cdot s_{\text{task}}}{\sum s_{\text{task}}}$ | Off-circuit aggregation; result stored in `Contract.difficulty` |
 | $\text{Corr}(V_t^{(n)}, R_t)$ | Off-circuit simulation; `prove_population_statistics()` for bounds |
 | $\|h_t(a)\|$ comparisons | `prove_history_size()`, `prove_history_depth()` |
 
@@ -3071,19 +3079,23 @@ Since Noir's `Field` type is always positive (elements of a prime field), we use
 
 The weighting function involves transcendental functions (log, exp, tanh) that are expensive in ZK. We compute weights off-circuit at contract completion time and store them in the Contract struct. **Critically, `compute_trust_value()` validates all contract bounds (difficulty, outcome, weight) before processing to prevent malicious provers from forging inflated trust scores.** Without this validation, an attacker could pass any eligibility threshold by providing contracts with artificially high weights.
 
-### 3. Fixed-Size Arrays
+### 3. Task-Level Difficulty Assessment
+
+Difficulty is assessed at the task level by the provider (domain expert) when accepting a contract. Tasks come from the Planning phase (customer's responsibility). Phase difficulty aggregates from task difficulties via stake-weighted average—this aggregation happens off-circuit before the phase contract is created. The ZK circuit only sees the final difficulty value in each contract; the aggregation process is not proven in-circuit. See: The_Difficulty_of_Assessing_Difficulty.md
+
+### 4. Fixed-Size Arrays
 
 All arrays have compile-time fixed sizes. Unused slots are marked with `weight = 0`. This is a fundamental ZK constraint that enables circuit compilation.
 
-### 4. Scaled Integer Arithmetic
+### 5. Scaled Integer Arithmetic
 
 All "decimal" values use fixed-point representation: `actual_value * PRECISION`. The `ratio()` function handles division of raw integers to produce properly scaled results, avoiding the double-scaling bug in naive implementations.
 
-### 5. Privacy-First Design
+### 6. Privacy-First Design
 
 The default is maximum privacy. All history details are private inputs. Public outputs are boolean (eligible/not eligible) or bounded ranges. The verifier learns nothing about contract count, outcomes, counterparties, or exact trust score.
 
-### 6. Incremental Trust Updates
+### 7. Incremental Trust Updates
 
 Trust evolution uses the incremental formula `V_t^(n+1) = V_t^(n) + contribution`. Full history recomputation is only needed for proofs, not for state updates. This enables efficient caching in the `HistoryState` struct.
 

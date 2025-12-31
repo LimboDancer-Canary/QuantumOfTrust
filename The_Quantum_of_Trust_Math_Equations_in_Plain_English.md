@@ -294,6 +294,12 @@ This formula calculates how much trust you need to be eligible:
 
 - The "$1+$" ensures the formula works even for zero-stake contracts (since $\log(0)$ is undefined).
 
+**How is difficulty determined?** The provider assesses difficulty at the task level when accepting a contract. Tasks come from the Planning phase (customer's responsibility). The provider reviews each task and assigns a difficulty rating (0-10) based on their domain expertise. Phase and contract difficulty aggregate from task difficulties via stake-weighted average:
+
+$$d_{phase} = \frac{\sum_{i} d_{task_i} \cdot s_{task_i}}{\sum_{i} s_{task_i}}$$
+
+The provider can request task refinement before accepting if tasks are too vague to assess confidently. Both parties have incentive for accurate ratings—incorrect difficulty leads to failed tasks, which affects the trust of both provider and customer. See **Section 19: Difficulty Aggregation** for the full equation treatment, and [The Difficulty of Assessing Difficulty](./The_Difficulty_of_Assessing_Difficulty.md) for the complete analysis.
+
 **Example calculations**:
 
 | Stake | Difficulty | Threshold |
@@ -660,6 +666,68 @@ The weight will be small (small stake), so task-level contributions are proporti
 
 ---
 
+## 19. Difficulty Aggregation
+
+### The Math
+
+$$d_{\text{phase}} = \frac{\sum_{i} d_{\text{task}_i} \cdot s_{\text{task}_i}}{\sum_{i} s_{\text{task}_i}}$$
+
+### Plain English Translation
+
+> "A phase's difficulty rating equals the stake-weighted average of its tasks' difficulty ratings."
+
+### Expanded Explanation
+
+This equation formalizes how difficulty flows up through the contract hierarchy:
+
+```
+Task difficulties (assessed by provider)
+    ↓ aggregate via stake-weighted average
+Phase difficulty
+    ↓ aggregate via stake-weighted average  
+Project difficulty
+```
+
+**Why stake-weighted?** High-stake tasks contribute more to the aggregate because they represent more of the work's value. A difficult but tiny task shouldn't dominate the phase difficulty.
+
+**Example Calculation**:
+
+| Task | Stake | Difficulty | Contribution |
+|------|-------|------------|--------------|
+| T1: Database schema | 500 sats | 3 | 500 × 3 = 1,500 |
+| T2: Password hashing | 750 sats | 4 | 750 × 4 = 3,000 |
+| T3: Session mgmt | 1,000 sats | 5 | 1,000 × 5 = 5,000 |
+| T4: OAuth2 integration | 1,250 sats | 7 | 1,250 × 7 = 8,750 |
+| T5: Rate limiting | 750 sats | 4 | 750 × 4 = 3,000 |
+| T6: Security audit | 750 sats | 6 | 750 × 6 = 4,500 |
+| **Total** | **5,000 sats** | | **25,750** |
+
+$$d_{\text{phase}} = \frac{25,750}{5,000} = 5.15$$
+
+**Who Assesses Difficulty?** The provider (domain expert) assesses difficulty at the task level when accepting a contract. Tasks come from the Planning phase (customer's responsibility). The provider reviews each task and assigns a difficulty rating (0-10) based on their expertise.
+
+**Why Not Customer-Assigned?** Assessing difficulty requires domain expertise—that's why the customer is hiring a provider. A customer who knew how hard the work was wouldn't need to hire someone.
+
+**Bidirectional Incentive**: Both parties want accurate difficulty ratings:
+- **Provider**: Underestimating difficulty → struggles → poor outcome → trust decreases
+- **Customer**: Project fails or drags → commitment trust decreases
+
+The outcome reveals whether difficulty was assessed correctly. Trust consequences follow.
+
+**The Recursive Pattern**: Just as tasks aggregate to phases, phases aggregate to projects:
+
+$$d_{\text{project}} = \frac{\sum_{j} d_{\text{phase}_j} \cdot s_{\text{phase}_j}}{\sum_{j} s_{\text{phase}_j}}$$
+
+**Why This Matters for Eligibility**: The threshold function uses difficulty:
+
+$$\theta(c) = \log(1 + s) \cdot d$$
+
+Accurate difficulty assessment ensures the right providers are eligible. Too low = unqualified providers bid. Too high = qualified providers excluded.
+
+See [The Difficulty of Assessing Difficulty](./The_Difficulty_of_Assessing_Difficulty.md) for the complete analysis of the information asymmetry problem and why task-level assessment by the provider is the solution.
+
+---
+
 ## Summary: The Complete Picture
 
 Here's how all the equations fit together:
@@ -681,9 +749,10 @@ CUSTOMER TRUST (Equations 15-17) ← NEW
 ├── Customer skills: spec quality, commitment, verification, escrow, timeline, scope
 └── Verification weight: credible customers' ratings count more
 
-CONTRACT STRUCTURE (Equations 5, 18)
+CONTRACT STRUCTURE (Equations 5, 18-19)
 ├── c = (provider, consumer, skill, stake, difficulty, deadline, escrow, V_consumer)
-└── Tasks inherit structure: task stake = phase stake × (task weight / total weight)
+├── Tasks inherit structure: task stake = phase stake × (task weight / total weight)
+└── Difficulty aggregates: phase difficulty = stake-weighted average of task difficulties
 
 GATEKEEPING (Equations 8-9)
 ├── eligible if V_t ≥ threshold
