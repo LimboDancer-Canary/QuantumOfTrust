@@ -20,6 +20,11 @@ The critical insight: **we don't compute trust values to return them. We prove s
 10. **Trust evolution** -- Incremental updates with private state
 11. **DAO aggregation** -- Proving composite trust
 12. **Sybil resistance** -- How privacy preserves the economic guarantees
+13. **Customer skill types** -- Bidirectional trust for consumers
+14. **Hierarchical contracts** -- Project → Phase → Task decomposition
+15. **Customer trust computation** -- Trust from behavior, not assigned outcomes
+16. **Verification weight** -- Customer credibility affects rating influence
+17. **Task decomposition** -- Team-based implementation with sub-subcontracts
 
 ### Key Constraints in ZK Circuits
 
@@ -3048,6 +3053,1113 @@ fn test_aggregate_empty() {
 
 ---
 
+## Part Seventeen: Customer Skill Types
+
+### Mathematical Notation
+
+Customer skill types measure consumer behavior rather than service delivery:
+
+$$\text{CustomerSkillType} \in \{\text{commitment}, \text{escrow}, \text{verification}, \text{scope}, \text{timeline}, \text{spec\_quality}\}$$
+
+These are orthogonal to provider skill types and enable bidirectional trust.
+
+### Noir Implementation
+
+```noir
+// ============================================
+// CUSTOMER SKILL TYPE CONSTANTS
+// ============================================
+
+/// Customer skill types are distinguished from provider skill types
+/// by using a reserved range of skill type IDs. These constants
+/// define the hash values for each customer skill dimension.
+
+/// Measures completed_projects / initiated_projects.
+/// High commitment = reliable partner who sees projects through.
+global CUSTOMER_SKILL_COMMITMENT: Field = 1000001;
+
+/// Measures on-time funding and prompt escrow release.
+/// High discipline = funds on time, releases promptly after completion.
+global CUSTOMER_SKILL_ESCROW: Field = 1000002;
+
+/// Measures fairness and variance of ratings given.
+/// Ideal variance ~0.35; too low = rubber-stamping, too high = erratic.
+global CUSTOMER_SKILL_VERIFICATION: Field = 1000003;
+
+/// Measures adherence to agreed specifications.
+/// tasks_as_planned / total_tasks - high = stable scope.
+global CUSTOMER_SKILL_SCOPE: Field = 1000004;
+
+/// Measures accuracy of deadline estimates across projects.
+/// High realism = achievable deadlines, low = chronic underestimation.
+global CUSTOMER_SKILL_TIMELINE: Field = 1000005;
+
+/// Measures whether specs approved by this customer lead to successful implementations.
+/// Computed from outcomes of implementation phases where customer approved spec.
+global CUSTOMER_SKILL_SPEC_QUALITY: Field = 1000006;
+
+/// Checks if a skill type is a customer skill type.
+/// 
+/// # Arguments
+/// * `skill_type` - The skill type to check
+/// 
+/// # Returns
+/// True if this is a customer skill type (in the reserved range).
+fn is_customer_skill_type(skill_type: SkillType) -> bool {
+    let id = skill_type.inner;
+    (id >= 1000001) & (id <= 1000006)
+}
+
+/// Customer skill type enum for type-safe matching.
+struct CustomerSkillType {
+    inner: Field,
+}
+
+impl CustomerSkillType {
+    fn commitment() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_COMMITMENT }
+    }
+    
+    fn escrow() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_ESCROW }
+    }
+    
+    fn verification() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_VERIFICATION }
+    }
+    
+    fn scope() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_SCOPE }
+    }
+    
+    fn timeline() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_TIMELINE }
+    }
+    
+    fn spec_quality() -> Self {
+        CustomerSkillType { inner: CUSTOMER_SKILL_SPEC_QUALITY }
+    }
+    
+    fn to_skill_type(self) -> SkillType {
+        SkillType::new(self.inner)
+    }
+    
+    fn eq(self, other: CustomerSkillType) -> bool {
+        self.inner == other.inner
+    }
+}
+```
+
+---
+
+## Part Eighteen: Hierarchical Contracts
+
+### Mathematical Notation
+
+Contracts can be organized hierarchically:
+
+$$\text{ContractType} \in \{\text{standalone}, \text{specification}, \text{planning}, \text{implementation}, \text{task}\}$$
+
+$$\text{Project} \rightarrow \text{Phases} \rightarrow \text{Tasks}$$
+
+Each level is a full contract with its own trust contribution.
+
+### Noir Implementation
+
+```noir
+// ============================================
+// CONTRACT TYPE CONSTANTS
+// ============================================
+
+/// Standalone contract, not part of a project.
+global CONTRACT_TYPE_STANDALONE: Field = 0;
+
+/// Specification phase of a project.
+global CONTRACT_TYPE_SPECIFICATION: Field = 1;
+
+/// Planning phase of a project.
+global CONTRACT_TYPE_PLANNING: Field = 2;
+
+/// Implementation phase of a project.
+global CONTRACT_TYPE_IMPLEMENTATION: Field = 3;
+
+/// Task within a phase (sub-subcontract).
+global CONTRACT_TYPE_TASK: Field = 4;
+
+/// Contract type for hierarchical classification.
+struct ContractType {
+    inner: Field,
+}
+
+impl ContractType {
+    fn standalone() -> Self {
+        ContractType { inner: CONTRACT_TYPE_STANDALONE }
+    }
+    
+    fn specification() -> Self {
+        ContractType { inner: CONTRACT_TYPE_SPECIFICATION }
+    }
+    
+    fn planning() -> Self {
+        ContractType { inner: CONTRACT_TYPE_PLANNING }
+    }
+    
+    fn implementation() -> Self {
+        ContractType { inner: CONTRACT_TYPE_IMPLEMENTATION }
+    }
+    
+    fn task() -> Self {
+        ContractType { inner: CONTRACT_TYPE_TASK }
+    }
+    
+    fn eq(self, other: ContractType) -> bool {
+        self.inner == other.inner
+    }
+    
+    fn is_phase(self) -> bool {
+        (self.inner >= CONTRACT_TYPE_SPECIFICATION) & 
+        (self.inner <= CONTRACT_TYPE_IMPLEMENTATION)
+    }
+    
+    fn is_task(self) -> bool {
+        self.inner == CONTRACT_TYPE_TASK
+    }
+}
+
+/// Extended contract with hierarchical fields.
+/// 
+/// Extends the base Contract with:
+/// - `contract_type`: Classification in the hierarchy
+/// - `parent_id`: Reference to parent contract (for tasks)
+/// - `project_id`: Reference to parent project (for phases)
+/// - `task_weight`: Proportional weight within phase (for tasks)
+/// - `planning_accuracy`: Tasks completed as planned (for implementation phases)
+struct HierarchicalContract {
+    /// Base contract fields
+    counterparty: AgentId,
+    skill_type: SkillType,
+    stake: Field,
+    difficulty: Field,
+    outcome_offset: Field,
+    completed_at: Field,
+    weight: Field,
+    
+    /// Hierarchical classification
+    contract_type: ContractType,
+    
+    /// Parent contract ID (for tasks within phases)
+    parent_id: Field,
+    
+    /// Project ID (for phases within projects)
+    project_id: Field,
+    
+    /// Task weight for proportional stake allocation (scaled by PRECISION)
+    /// Only used for CONTRACT_TYPE_TASK
+    task_weight: Field,
+    
+    /// Planning accuracy: tasks_as_planned / total_tasks (scaled by PRECISION)
+    /// Only used for CONTRACT_TYPE_IMPLEMENTATION
+    planning_accuracy: Field,
+}
+
+impl HierarchicalContract {
+    /// Creates an empty hierarchical contract.
+    fn empty() -> Self {
+        HierarchicalContract {
+            counterparty: AgentId::new(0),
+            skill_type: SkillType::new(0),
+            stake: 0,
+            difficulty: 0,
+            outcome_offset: OUTCOME_OFFSET,
+            completed_at: 0,
+            weight: 0,
+            contract_type: ContractType::standalone(),
+            parent_id: 0,
+            project_id: 0,
+            task_weight: PRECISION,  // Default weight of 1.0
+            planning_accuracy: PRECISION,  // Default 100% accuracy
+        }
+    }
+    
+    /// Converts to base Contract (drops hierarchical fields).
+    fn to_base_contract(self) -> Contract {
+        Contract {
+            counterparty: self.counterparty,
+            skill_type: self.skill_type,
+            stake: self.stake,
+            difficulty: self.difficulty,
+            outcome_offset: self.outcome_offset,
+            completed_at: self.completed_at,
+            weight: self.weight,
+        }
+    }
+    
+    /// Gets the actual outcome as a Signed value.
+    fn outcome(self) -> Signed {
+        if self.outcome_offset >= OUTCOME_OFFSET {
+            Signed::from_positive(self.outcome_offset - OUTCOME_OFFSET)
+        } else {
+            Signed::from_negative(OUTCOME_OFFSET - self.outcome_offset)
+        }
+    }
+    
+    /// Checks if this is a task contract.
+    fn is_task(self) -> bool {
+        self.contract_type.is_task()
+    }
+    
+    /// Checks if this is a phase contract.
+    fn is_phase(self) -> bool {
+        self.contract_type.is_phase()
+    }
+    
+    /// Checks if this contract is active.
+    fn is_active(self) -> bool {
+        self.weight != 0
+    }
+}
+
+/// Computes task stake allocation within a phase.
+/// 
+/// # Mathematical Notation
+/// $$s_{\text{task}} = s_{\text{phase}} \cdot \frac{w_{\text{task}}}{\sum_{i} w_{\text{task}_i}}$$
+/// 
+/// # Arguments
+/// * `phase_stake` - Total stake of the parent phase
+/// * `task_weight` - This task's weight (scaled by PRECISION)
+/// * `total_task_weight` - Sum of all task weights (scaled by PRECISION)
+/// 
+/// # Returns
+/// Task's proportional stake allocation.
+fn compute_task_stake(
+    phase_stake: Field,
+    task_weight: Field,
+    total_task_weight: Field,
+) -> Field {
+    if total_task_weight == 0 {
+        0
+    } else {
+        // task_stake = phase_stake × (task_weight / total_task_weight)
+        (phase_stake * task_weight) / total_task_weight
+    }
+}
+
+/// Computes planning accuracy from task completion data.
+/// 
+/// # Arguments
+/// * `tasks_as_planned` - Number of tasks completed as originally planned
+/// * `total_tasks` - Total number of tasks
+/// 
+/// # Returns
+/// Accuracy ratio scaled by PRECISION (PRECISION = 100% accuracy).
+fn compute_planning_accuracy(
+    tasks_as_planned: Field,
+    total_tasks: Field,
+) -> Field {
+    if total_tasks == 0 {
+        PRECISION  // No tasks = perfect accuracy by default
+    } else {
+        ratio(tasks_as_planned, total_tasks)
+    }
+}
+```
+
+---
+
+## Part Nineteen: Customer Trust Computation
+
+### Mathematical Notation
+
+Customer trust is computed from observable behaviors:
+
+$$V_t^{\text{customer}}(\text{Consumer}) = \sum_{c \in h_c} \omega(c) \cdot \text{behavior}(c) \cdot \gamma(c) \cdot \nu(c)$$
+
+Unlike provider trust (from outcomes), customer trust derives from behavioral metrics.
+
+### Noir Implementation
+
+```noir
+// ============================================
+// CUSTOMER PROFILE CONSTANTS
+// ============================================
+
+/// Maximum number of implementation outcomes to track for spec quality.
+global MAX_IMPLEMENTATION_OUTCOMES: u32 = 64;
+
+/// Ideal rating variance for verification integrity calculation.
+/// Scaled by PRECISION (0.35 = 350000).
+global IDEAL_RATING_VARIANCE: Field = 350000;
+
+/// Minimum acceptable rating variance (below this = rubber-stamping).
+global MIN_RATING_VARIANCE: Field = 100000;  // 0.10
+
+/// Maximum acceptable rating variance (above this = erratic).
+global MAX_RATING_VARIANCE: Field = 800000;  // 0.80
+
+/// Maximum delay in days for escrow release calculations.
+global MAX_RELEASE_DELAY_DAYS: Field = 7;
+
+// ============================================
+// CUSTOMER PROFILE STRUCTURE
+// ============================================
+
+/// Customer behavior profile for computing customer trust.
+/// 
+/// Unlike provider contracts that record outcomes assigned by others,
+/// customer profiles capture observable behaviors that inform trust.
+struct CustomerProfile {
+    /// Customer's agent ID.
+    customer_id: AgentId,
+    
+    /// Total projects initiated by this customer.
+    projects_initiated: Field,
+    
+    /// Projects completed (all phases reached terminal state).
+    projects_completed: Field,
+    
+    /// Total ratings given by this customer.
+    total_ratings_given: Field,
+    
+    /// Variance of ratings (scaled by PRECISION).
+    /// Low = rubber-stamping, high = erratic.
+    ratings_variance: Field,
+    
+    /// Number of on-time escrow fundings.
+    on_time_fundings: Field,
+    
+    /// Total number of required fundings.
+    total_fundings: Field,
+    
+    /// Average release delay in days (scaled by PRECISION).
+    /// Negative = early release (good).
+    avg_release_delay: Signed,
+    
+    /// Timeline accuracy: (planned - actual) / planned, averaged.
+    /// Positive = early delivery, negative = overruns.
+    /// Scaled by PRECISION.
+    timeline_accuracy: Signed,
+    
+    /// Number of projects in timeline calculation.
+    timeline_projects_count: Field,
+    
+    /// Tasks completed as planned.
+    scope_tasks_as_planned: Field,
+    
+    /// Total tasks across all projects.
+    scope_total_tasks: Field,
+    
+    /// Implementation outcomes for specs approved by this customer.
+    /// Used for spec quality calculation.
+    /// Each entry is (outcome_offset, weight).
+    implementation_outcomes: [(Field, Field); MAX_IMPLEMENTATION_OUTCOMES],
+    implementation_outcomes_count: Field,
+}
+
+impl CustomerProfile {
+    /// Creates an empty customer profile.
+    fn empty(customer_id: AgentId) -> Self {
+        CustomerProfile {
+            customer_id,
+            projects_initiated: 0,
+            projects_completed: 0,
+            total_ratings_given: 0,
+            ratings_variance: 0,
+            on_time_fundings: 0,
+            total_fundings: 0,
+            avg_release_delay: Signed::zero(),
+            timeline_accuracy: Signed::zero(),
+            timeline_projects_count: 0,
+            scope_tasks_as_planned: 0,
+            scope_total_tasks: 0,
+            implementation_outcomes: [(OUTCOME_OFFSET, 0); MAX_IMPLEMENTATION_OUTCOMES],
+            implementation_outcomes_count: 0,
+        }
+    }
+    
+    /// Computes commitment rate: completed / initiated.
+    /// Returns value scaled by PRECISION.
+    fn commitment_rate(self) -> Field {
+        if self.projects_initiated == 0 {
+            0
+        } else {
+            ratio(self.projects_completed, self.projects_initiated)
+        }
+    }
+    
+    /// Computes funding reliability: on_time / total.
+    /// Returns value scaled by PRECISION.
+    fn funding_reliability(self) -> Field {
+        if self.total_fundings == 0 {
+            0
+        } else {
+            ratio(self.on_time_fundings, self.total_fundings)
+        }
+    }
+    
+    /// Computes scope stability: tasks_as_planned / total_tasks.
+    /// Returns value scaled by PRECISION.
+    fn scope_stability(self) -> Field {
+        if self.scope_total_tasks == 0 {
+            0
+        } else {
+            ratio(self.scope_tasks_as_planned, self.scope_total_tasks)
+        }
+    }
+}
+
+// ============================================
+// CUSTOMER TRUST CALCULATION
+// ============================================
+
+/// Computes commitment trust from profile.
+/// 
+/// High commitment = reliable partner who sees projects through.
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION, range [0, PRECISION].
+fn compute_commitment_trust(profile: CustomerProfile) -> Field {
+    profile.commitment_rate()
+}
+
+/// Computes escrow discipline trust from funding reliability and release promptness.
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION, range [0, PRECISION].
+fn compute_escrow_trust(profile: CustomerProfile) -> Field {
+    // Primary factor: on-time funding rate (70%)
+    let funding_factor = profile.funding_reliability();
+    
+    // Secondary factor: release delay (30%)
+    // Map delay to [PRECISION/2, PRECISION]: 0 delay = PRECISION, 7+ days = PRECISION/2
+    let delay_factor = if profile.avg_release_delay.is_negative {
+        // Early release = full score
+        PRECISION
+    } else if profile.avg_release_delay.magnitude >= (MAX_RELEASE_DELAY_DAYS * PRECISION) {
+        // 7+ days late = minimum (0.5)
+        PRECISION / 2
+    } else {
+        // Linear interpolation
+        PRECISION - (profile.avg_release_delay.magnitude / (MAX_RELEASE_DELAY_DAYS * 2))
+    };
+    
+    // Weighted combination: 70% funding + 30% delay
+    let weighted = fp_mul(funding_factor, 700000) + fp_mul(delay_factor, 300000);
+    weighted / PRECISION
+}
+
+/// Computes verification integrity trust based on rating variance.
+/// 
+/// Ideal variance ~0.35. Too low = rubber-stamping, too high = erratic.
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION, range [0, PRECISION].
+fn compute_verification_integrity(profile: CustomerProfile) -> Field {
+    if profile.total_ratings_given == 0 {
+        0
+    } else {
+        let variance = profile.ratings_variance;
+        
+        // Distance from ideal variance
+        let distance = if variance >= IDEAL_RATING_VARIANCE {
+            variance - IDEAL_RATING_VARIANCE
+        } else {
+            IDEAL_RATING_VARIANCE - variance
+        };
+        
+        // Max distance is 0.65 scaled
+        let max_distance: Field = 650000;
+        
+        // Normalize distance to [0, PRECISION]
+        let normalized = if distance >= max_distance {
+            PRECISION
+        } else {
+            ratio(distance, max_distance)
+        };
+        
+        // Base integrity = 1 - normalized_distance
+        let base_integrity = PRECISION - normalized;
+        
+        // Additional penalties for extreme variance
+        if variance < MIN_RATING_VARIANCE {
+            // Severe penalty for rubber-stamping: 50%
+            base_integrity / 2
+        } else if variance > MAX_RATING_VARIANCE {
+            // Penalty for erratic rating: 75%
+            fp_mul(base_integrity, 750000)
+        } else {
+            base_integrity
+        }
+    }
+}
+
+/// Computes scope stability trust.
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION, range [0, PRECISION].
+fn compute_scope_stability_trust(profile: CustomerProfile) -> Field {
+    profile.scope_stability()
+}
+
+/// Computes timeline realism trust from deadline accuracy.
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION, range [0, PRECISION].
+fn compute_timeline_realism(profile: CustomerProfile) -> Field {
+    if profile.timeline_projects_count == 0 {
+        0
+    } else {
+        let accuracy = profile.timeline_accuracy;
+        
+        if accuracy.is_negative {
+            // Chronic overruns (bad) - map to [0, PRECISION/2]
+            let overrun_factor = if accuracy.magnitude >= PRECISION {
+                0
+            } else {
+                (PRECISION - accuracy.magnitude) / 2
+            };
+            overrun_factor
+        } else {
+            // Early/on-time (good) - map to [PRECISION/2, PRECISION]
+            let buffer_factor = if accuracy.magnitude >= PRECISION {
+                PRECISION
+            } else {
+                (PRECISION / 2) + (accuracy.magnitude / 2)
+            };
+            buffer_factor
+        }
+    }
+}
+
+/// Computes spec quality trust from implementation outcomes.
+/// 
+/// Measures whether specs approved by this customer lead to successful implementations.
+/// 
+/// # Returns
+/// Trust value as Signed, scaled by PRECISION.
+fn compute_spec_quality(profile: CustomerProfile) -> Signed {
+    if profile.implementation_outcomes_count == 0 {
+        Signed::zero()
+    } else {
+        let mut total_weight: Field = 0;
+        let mut weighted_sum = Signed::zero();
+        
+        for i in 0..MAX_IMPLEMENTATION_OUTCOMES {
+            if (i as Field) < profile.implementation_outcomes_count {
+                let (outcome_offset, weight) = profile.implementation_outcomes[i];
+                if weight != 0 {
+                    total_weight = total_weight + weight;
+                    
+                    // Convert outcome_offset to signed outcome
+                    let outcome = if outcome_offset >= OUTCOME_OFFSET {
+                        Signed::from_positive((outcome_offset - OUTCOME_OFFSET) * weight)
+                    } else {
+                        Signed::from_negative((OUTCOME_OFFSET - outcome_offset) * weight)
+                    };
+                    
+                    weighted_sum = weighted_sum.add(outcome);
+                }
+            }
+        }
+        
+        if total_weight == 0 {
+            Signed::zero()
+        } else {
+            // Divide by total weight to get average
+            let magnitude = (weighted_sum.magnitude * PRECISION) / (total_weight * 100);
+            Signed::new(magnitude, weighted_sum.is_negative)
+        }
+    }
+}
+
+/// Computes customer trust for a specific customer skill type.
+/// 
+/// # Arguments
+/// * `profile` - Customer's behavior profile
+/// * `skill_type` - The customer skill type to compute
+/// 
+/// # Returns
+/// Trust value scaled by PRECISION.
+fn compute_customer_trust(
+    profile: CustomerProfile,
+    skill_type: CustomerSkillType,
+) -> Signed {
+    if skill_type.eq(CustomerSkillType::commitment()) {
+        Signed::from_positive(compute_commitment_trust(profile))
+    } else if skill_type.eq(CustomerSkillType::escrow()) {
+        Signed::from_positive(compute_escrow_trust(profile))
+    } else if skill_type.eq(CustomerSkillType::verification()) {
+        Signed::from_positive(compute_verification_integrity(profile))
+    } else if skill_type.eq(CustomerSkillType::scope()) {
+        Signed::from_positive(compute_scope_stability_trust(profile))
+    } else if skill_type.eq(CustomerSkillType::timeline()) {
+        Signed::from_positive(compute_timeline_realism(profile))
+    } else if skill_type.eq(CustomerSkillType::spec_quality()) {
+        compute_spec_quality(profile)
+    } else {
+        Signed::zero()
+    }
+}
+
+/// Proves customer trust meets a threshold for a specific skill type.
+/// 
+/// # Arguments
+/// * `skill_type` - The customer skill type (public)
+/// * `threshold` - Minimum required trust value (public, scaled by PRECISION)
+/// * `profile` - Customer's behavior profile (private)
+/// 
+/// # Returns
+/// True if customer trust >= threshold.
+fn prove_customer_eligibility(
+    skill_type: pub Field,
+    threshold: pub Field,
+    profile: CustomerProfile,
+) -> pub bool {
+    let customer_skill = CustomerSkillType { inner: skill_type };
+    let trust = compute_customer_trust(profile, customer_skill);
+    let threshold_signed = Signed::from_positive(threshold);
+    trust.gte(threshold_signed)
+}
+```
+
+---
+
+## Part Twenty: Verification Weight
+
+### Mathematical Notation
+
+Verification weight adjusts how much a customer's rating contributes to provider trust:
+
+$$\text{verification\_weight}(c) = f\big(V_{\text{verify}}(\text{consumer}), \sigma^2(\text{ratings})\big)$$
+
+Range approximately [0.5, 1.5]. Credible customers' ratings count more.
+
+### Noir Implementation
+
+```noir
+// ============================================
+// VERIFICATION WEIGHT CONSTANTS
+// ============================================
+
+/// Minimum verification weight (for rubber-stamping/erratic customers).
+global MIN_VERIFICATION_WEIGHT: Field = 500000;  // 0.5
+
+/// Maximum verification weight (for highly credible customers).
+global MAX_VERIFICATION_WEIGHT: Field = 1500000;  // 1.5
+
+// ============================================
+// VERIFICATION WEIGHT CALCULATION
+// ============================================
+
+/// Computes the verification weight for a customer's rating.
+/// 
+/// Credible, discriminating customers' ratings count more than
+/// those from unknown or rubber-stamping customers.
+/// 
+/// # Arguments
+/// * `customer_verification_trust` - Customer's verification integrity [0, PRECISION]
+/// * `customer_rating_variance` - Variance of customer's ratings (scaled by PRECISION)
+/// 
+/// # Returns
+/// Weight multiplier scaled by PRECISION, range [0.5, 1.5].
+fn compute_verification_weight(
+    customer_verification_trust: Field,
+    customer_rating_variance: Field,
+) -> Field {
+    // Base weight from verification trust: maps [0, PRECISION] to [0.5, 1.0]
+    // trust_factor = 0.5 + (trust * 0.5)
+    let trust_factor = (PRECISION / 2) + (customer_verification_trust / 2);
+    
+    // Variance factor: penalize extreme variance
+    let variance_factor = if customer_rating_variance < MIN_RATING_VARIANCE {
+        // Very low variance = rubber-stamping = 0.5x
+        PRECISION / 2
+    } else if customer_rating_variance > MAX_RATING_VARIANCE {
+        // Very high variance = erratic = 0.7x
+        700000
+    } else {
+        // Reasonable variance = full weight
+        PRECISION
+    };
+    
+    // Combine factors
+    let combined = fp_mul(trust_factor, variance_factor);
+    
+    // Clamp to valid range
+    if combined < MIN_VERIFICATION_WEIGHT {
+        MIN_VERIFICATION_WEIGHT
+    } else if combined > MAX_VERIFICATION_WEIGHT {
+        MAX_VERIFICATION_WEIGHT
+    } else {
+        combined
+    }
+}
+
+/// Computes the adjusted trust contribution for a contract,
+/// applying verification weight from customer credibility.
+/// 
+/// # Arguments
+/// * `contract` - The contract to compute contribution for
+/// * `customer_profile` - The customer who rated this contract
+/// 
+/// # Returns
+/// Adjusted trust contribution as Signed.
+fn compute_adjusted_contribution(
+    contract: Contract,
+    customer_profile: CustomerProfile,
+) -> Signed {
+    let base_contribution = contract.trust_contribution();
+    
+    // Get verification weight
+    let verification_trust = compute_verification_integrity(customer_profile);
+    let verification_weight = compute_verification_weight(
+        verification_trust,
+        customer_profile.ratings_variance
+    );
+    
+    // Apply verification weight
+    let adjusted_magnitude = fp_mul(base_contribution.magnitude, verification_weight);
+    Signed::new(adjusted_magnitude, base_contribution.is_negative)
+}
+
+/// Enhanced trust computation that incorporates verification weight.
+/// 
+/// This extends `compute_trust_value` by applying verification weights
+/// to each contract's contribution based on customer credibility.
+/// 
+/// # Arguments
+/// * `history` - Agent's contract history
+/// * `skill_type` - Skill type to compute trust for
+/// * `customer_profiles` - Array of customer profiles for verification weighting
+/// * `customer_count` - Number of customer profiles provided
+/// 
+/// # Returns
+/// Trust value with verification weighting applied.
+fn compute_trust_value_with_verification(
+    history: AgentHistory,
+    skill_type: SkillType,
+    customer_profiles: [CustomerProfile; MAX_HISTORY],
+    customer_count: Field,
+) -> Signed {
+    let mut trust = Signed::zero();
+    
+    for i in 0..MAX_HISTORY {
+        if (i as Field) < history.count {
+            let contract = history.contracts[i];
+            if contract.is_active() & contract.is_skill(skill_type) {
+                // Find matching customer profile (by counterparty ID)
+                let mut found_profile = false;
+                let mut adjusted_contribution = contract.trust_contribution();
+                
+                for j in 0..MAX_HISTORY {
+                    if (j as Field) < customer_count {
+                        let profile = customer_profiles[j];
+                        if profile.customer_id.eq(contract.counterparty) {
+                            adjusted_contribution = compute_adjusted_contribution(
+                                contract, 
+                                profile
+                            );
+                            found_profile = true;
+                        }
+                    }
+                }
+                
+                trust = trust.add(adjusted_contribution);
+            }
+        }
+    }
+    
+    trust
+}
+```
+
+---
+
+## Part Twenty-One: Task Decomposition
+
+### Mathematical Notation
+
+Tasks enable team-based implementation within phases:
+
+$$s_{\text{task}} = s_{\text{phase}} \cdot \frac{w_{\text{task}}}{\sum_{i} w_{\text{task}_i}}$$
+
+$$d_{\text{phase}} = \frac{\sum_{i} d_{\text{task}_i} \cdot s_{\text{task}_i}}{\sum_{i} s_{\text{task}_i}}$$
+
+Each task is a full contract, enabling individual trust attribution for team members.
+
+### Noir Implementation
+
+```noir
+// ============================================
+// TASK DECOMPOSITION CONSTANTS
+// ============================================
+
+/// Maximum number of tasks per phase.
+global MAX_TASKS_PER_PHASE: u32 = 64;
+
+// ============================================
+// TASK STRUCTURE
+// ============================================
+
+/// Represents a task within a phase contract.
+/// 
+/// Tasks are sub-subcontracts that enable granular tracking and
+/// team-based implementation where different providers handle different tasks.
+struct Task {
+    /// Unique identifier for this task.
+    task_id: Field,
+    
+    /// The provider assigned to this task.
+    provider: AgentId,
+    
+    /// Reference to the parent phase contract.
+    parent_phase_id: Field,
+    
+    /// Task weight for proportional stake allocation (scaled by PRECISION).
+    weight: Field,
+    
+    /// Outcome of this specific task (offset representation).
+    outcome_offset: Field,
+    
+    /// Whether this task was completed as planned.
+    completed_as_planned: bool,
+    
+    /// Timestamp when task was completed.
+    completed_at: Field,
+    
+    /// Difficulty rating for this task (0-10).
+    difficulty: Field,
+}
+
+impl Task {
+    /// Creates an empty/inactive task.
+    fn empty() -> Self {
+        Task {
+            task_id: 0,
+            provider: AgentId::new(0),
+            parent_phase_id: 0,
+            weight: 0,
+            outcome_offset: OUTCOME_OFFSET,
+            completed_as_planned: true,
+            completed_at: 0,
+            difficulty: 0,
+        }
+    }
+    
+    /// Gets the outcome as a Signed value.
+    fn outcome(self) -> Signed {
+        if self.outcome_offset >= OUTCOME_OFFSET {
+            Signed::from_positive(self.outcome_offset - OUTCOME_OFFSET)
+        } else {
+            Signed::from_negative(OUTCOME_OFFSET - self.outcome_offset)
+        }
+    }
+    
+    /// Checks if this task is active.
+    fn is_active(self) -> bool {
+        self.weight != 0
+    }
+    
+    /// Computes this task's stake allocation within the phase.
+    fn compute_stake(self, phase_stake: Field, total_task_weight: Field) -> Field {
+        compute_task_stake(phase_stake, self.weight, total_task_weight)
+    }
+}
+
+/// Represents a phase with its associated tasks.
+struct PhaseWithTasks {
+    /// The phase contract.
+    phase: HierarchicalContract,
+    
+    /// Tasks within this phase.
+    tasks: [Task; MAX_TASKS_PER_PHASE],
+    
+    /// Number of active tasks.
+    task_count: Field,
+}
+
+impl PhaseWithTasks {
+    /// Creates an empty phase with no tasks.
+    fn empty() -> Self {
+        PhaseWithTasks {
+            phase: HierarchicalContract::empty(),
+            tasks: [Task::empty(); MAX_TASKS_PER_PHASE],
+            task_count: 0,
+        }
+    }
+    
+    /// Computes total weight of all active tasks.
+    fn total_task_weight(self) -> Field {
+        let mut total: Field = 0;
+        for i in 0..MAX_TASKS_PER_PHASE {
+            if (i as Field) < self.task_count {
+                total = total + self.tasks[i].weight;
+            }
+        }
+        total
+    }
+    
+    /// Computes the aggregate phase outcome from task outcomes.
+    /// Phase outcome = weighted average of task outcomes.
+    fn compute_aggregate_outcome(self) -> Signed {
+        let total_weight = self.total_task_weight();
+        if total_weight == 0 {
+            Signed::zero()
+        } else {
+            let mut weighted_sum = Signed::zero();
+            
+            for i in 0..MAX_TASKS_PER_PHASE {
+                if (i as Field) < self.task_count {
+                    let task = self.tasks[i];
+                    if task.is_active() {
+                        let outcome = task.outcome();
+                        // weight * outcome
+                        let contribution = Signed::new(
+                            (task.weight * outcome.magnitude) / 100,
+                            outcome.is_negative
+                        );
+                        weighted_sum = weighted_sum.add(contribution);
+                    }
+                }
+            }
+            
+            // Divide by total weight
+            let magnitude = (weighted_sum.magnitude * 100) / total_weight;
+            Signed::new(magnitude, weighted_sum.is_negative)
+        }
+    }
+    
+    /// Computes planning accuracy from task completion data.
+    fn compute_planning_accuracy(self) -> Field {
+        if self.task_count == 0 {
+            PRECISION
+        } else {
+            let mut as_planned: Field = 0;
+            for i in 0..MAX_TASKS_PER_PHASE {
+                if (i as Field) < self.task_count {
+                    if self.tasks[i].completed_as_planned {
+                        as_planned = as_planned + 1;
+                    }
+                }
+            }
+            ratio(as_planned, self.task_count)
+        }
+    }
+    
+    /// Aggregates trust contribution for a specific provider.
+    /// 
+    /// Enables team members to prove their individual contribution.
+    /// 
+    /// # Arguments
+    /// * `provider` - The provider whose contribution to aggregate
+    /// 
+    /// # Returns
+    /// Total trust contribution for this provider.
+    fn aggregate_provider_contribution(self, provider: AgentId) -> Signed {
+        let total_weight = self.total_task_weight();
+        if total_weight == 0 {
+            Signed::zero()
+        } else {
+            let mut contribution = Signed::zero();
+            
+            for i in 0..MAX_TASKS_PER_PHASE {
+                if (i as Field) < self.task_count {
+                    let task = self.tasks[i];
+                    if task.is_active() & task.provider.eq(provider) {
+                        let task_stake = task.compute_stake(self.phase.stake, total_weight);
+                        let stake_ratio = ratio(task_stake, self.phase.stake);
+                        let outcome = task.outcome();
+                        
+                        // contribution = phase_weight × stake_ratio × outcome / 100
+                        let magnitude = fp_mul(
+                            fp_mul(self.phase.weight, stake_ratio),
+                            outcome.magnitude
+                        ) / 100;
+                        
+                        let task_contribution = Signed::new(magnitude, outcome.is_negative);
+                        contribution = contribution.add(task_contribution);
+                    }
+                }
+            }
+            
+            contribution
+        }
+    }
+}
+
+/// Computes stake-weighted average difficulty from tasks.
+/// 
+/// Used to aggregate task difficulties to phase difficulty.
+/// 
+/// # Mathematical Notation
+/// $$d_{\text{phase}} = \frac{\sum_{i} d_{\text{task}_i} \cdot s_{\text{task}_i}}{\sum_{i} s_{\text{task}_i}}$$
+fn compute_phase_difficulty_from_tasks(
+    tasks: [Task; MAX_TASKS_PER_PHASE],
+    task_count: Field,
+    phase_stake: Field,
+) -> Field {
+    let mut total_weight: Field = 0;
+    for i in 0..MAX_TASKS_PER_PHASE {
+        if (i as Field) < task_count {
+            total_weight = total_weight + tasks[i].weight;
+        }
+    }
+    
+    if total_weight == 0 {
+        0
+    } else {
+        let mut weighted_difficulty: Field = 0;
+        let mut total_task_stake: Field = 0;
+        
+        for i in 0..MAX_TASKS_PER_PHASE {
+            if (i as Field) < task_count {
+                let task = tasks[i];
+                if task.is_active() {
+                    let task_stake = compute_task_stake(
+                        phase_stake, 
+                        task.weight, 
+                        total_weight
+                    );
+                    weighted_difficulty = weighted_difficulty + 
+                        (task.difficulty * task_stake);
+                    total_task_stake = total_task_stake + task_stake;
+                }
+            }
+        }
+        
+        if total_task_stake == 0 {
+            0
+        } else {
+            weighted_difficulty / total_task_stake
+        }
+    }
+}
+
+/// Proves a provider's contribution from tasks within a phase.
+/// 
+/// Enables team members to prove their individual trust contribution
+/// without revealing the full phase structure.
+/// 
+/// # Arguments
+/// * `provider_id` - Provider to prove contribution for (public)
+/// * `threshold` - Minimum contribution required (public)
+/// * `phase` - Phase with tasks (private)
+/// 
+/// # Returns
+/// True if provider's contribution >= threshold.
+fn prove_task_contribution(
+    provider_id: pub Field,
+    threshold: pub Field,
+    phase: PhaseWithTasks,
+) -> pub bool {
+    let provider = AgentId::new(provider_id);
+    let contribution = phase.aggregate_provider_contribution(provider);
+    let threshold_signed = Signed::from_positive(threshold);
+    contribution.gte(threshold_signed)
+}
+```
+
+---
+
 ## Summary of Equation Mappings
 
 | Math Notation | Noir Implementation |
@@ -3063,9 +4175,34 @@ fn test_aggregate_empty() {
 | $\omega(c) = f(s, d, V_t, \text{recency})$ | `compute_weight()` or pre-computed in `Contract.weight` |
 | $\text{eligible}(a, c) \iff V_t(a) \geq \theta(c)$ | `prove_eligibility()` -- THE core circuit |
 | $\theta(c) = \log(1+s) \cdot d$ | `calculate_threshold()` with `approx_log1p()` |
-| $d_{\text{phase}} = \frac{\sum d_{\text{task}} \cdot s_{\text{task}}}{\sum s_{\text{task}}}$ | Off-circuit aggregation; result stored in `Contract.difficulty` |
+| $d_{\text{phase}} = \frac{\sum d_{\text{task}} \cdot s_{\text{task}}}{\sum s_{\text{task}}}$ | `compute_phase_difficulty_from_tasks()` |
 | $\text{Corr}(V_t^{(n)}, R_t)$ | Off-circuit simulation; `prove_population_statistics()` for bounds |
 | $\|h_t(a)\|$ comparisons | `prove_history_size()`, `prove_history_depth()` |
+| **Customer Trust (Bidirectional)** | |
+| $V_t^{\text{customer}}(a)$ | `compute_customer_trust(profile, skill_type) -> Signed` |
+| $t_{\text{customer}} \in \{t_1, ..., t_6\}$ | `CustomerSkillType` struct + constants (`CUSTOMER_SKILL_*`) |
+| $\text{CustomerProfile}(a)$ | `CustomerProfile { customer_id, projects_*, ratings_*, ... }` |
+| $V_{\text{commit}}(a) = \frac{n_{\text{completed}}}{n_{\text{initiated}}}$ | `compute_commitment_trust(profile) -> Field` |
+| $V_{\text{escrow}}(a) = f(\text{funding}, \text{delay})$ | `compute_escrow_trust(profile) -> Field` |
+| $V_{\text{verify}}(a) = g(\sigma^2_{\text{ratings}})$ | `compute_verification_integrity(profile) -> Field` |
+| $V_{\text{scope}}(a) = \frac{n_{\text{as\_planned}}}{n_{\text{total}}}$ | `compute_scope_stability_trust(profile) -> Field` |
+| $V_{\text{timeline}}(a) = h(\text{accuracy})$ | `compute_timeline_realism(profile) -> Field` |
+| $V_{\text{spec}}(a) = \sum_i \omega_i \cdot o_i$ | `compute_spec_quality(profile) -> Signed` |
+| **Verification Weight** | |
+| $\psi(c) = f(V_{\text{verify}}, \sigma^2)$ | `compute_verification_weight(trust, variance) -> Field` |
+| $\omega'(c) = \omega(c) \cdot \psi(c)$ | `compute_adjusted_contribution(contract, profile) -> Signed` |
+| $V_t^{\psi}(a) = \sum_c \omega'(c) \cdot o(c)$ | `compute_trust_value_with_verification()` |
+| **Hierarchical Contracts** | |
+| $\text{type}(c) \in \{\text{standalone}, ..., \text{task}\}$ | `ContractType` struct + constants (`CONTRACT_TYPE_*`) |
+| $c_{\text{hier}} = (c, \text{type}, \text{parent}, \text{project})$ | `HierarchicalContract { ..., contract_type, parent_id, project_id, ... }` |
+| $\text{accuracy} = \frac{n_{\text{as\_planned}}}{n_{\text{total}}}$ | `compute_planning_accuracy(tasks_as_planned, total_tasks) -> Field` |
+| **Task Decomposition** | |
+| $s_{\text{task}} = s_{\text{phase}} \cdot \frac{w_{\text{task}}}{\sum_i w_i}$ | `compute_task_stake(phase_stake, task_weight, total_weight) -> Field` |
+| $\text{Task} = (\text{id}, a_{\text{provider}}, w, o, d)$ | `Task { task_id, provider, weight, outcome_offset, ... }` |
+| $\text{Phase}(\{T_i\})$ | `PhaseWithTasks { phase, tasks, task_count }` |
+| $o_{\text{phase}} = \frac{\sum_i w_i \cdot o_i}{\sum_i w_i}$ | `PhaseWithTasks::compute_aggregate_outcome() -> Signed` |
+| $\text{contrib}(a) = \sum_{T_i : a_i = a} \omega \cdot \frac{s_i}{s} \cdot o_i$ | `PhaseWithTasks::aggregate_provider_contribution(provider) -> Signed` |
+| $\text{prove\_contrib}(a, \theta) \rightarrow \pi$ | `prove_task_contribution(provider_id, threshold, phase) -> bool` |
 
 ---
 
@@ -3098,6 +4235,22 @@ The default is maximum privacy. All history details are private inputs. Public o
 ### 7. Incremental Trust Updates
 
 Trust evolution uses the incremental formula `V_t^(n+1) = V_t^(n) + contribution`. Full history recomputation is only needed for proofs, not for state updates. This enables efficient caching in the `HistoryState` struct.
+
+### 8. Bidirectional Trust via Customer Profiles
+
+Customers are trust-bearing entities, measured by behavior rather than assigned outcomes. The `CustomerProfile` struct captures observable behaviors (commitment rate, escrow discipline, rating patterns) that are computed off-circuit from on-chain events. Customer trust uses six orthogonal skill types in a reserved ID range (1000001-1000006) to avoid collision with provider skill types.
+
+### 9. Verification Weight for Rating Credibility
+
+Customer credibility affects how much their ratings contribute to provider trust. The verification weight (range [0.5, 1.5]) scales contract contributions based on the customer's verification integrity score and rating variance. This makes rubber-stamping and erratic rating patterns self-penalizing without requiring external governance.
+
+### 10. Hierarchical Contracts for Team-Based Work
+
+The `ContractType` enum and `HierarchicalContract` struct enable Project → Phase → Task decomposition. Each level is a full contract with its own trust contribution. The `PhaseWithTasks` struct aggregates task contributions while enabling individual team members to prove their specific contribution without revealing the full phase structure.
+
+### 11. Task-Level Trust Attribution
+
+Tasks within phases can have different providers, enabling specialist collaboration. Each task's contribution is proportional to its weight within the phase: `task_contribution = phase_weight × (task_stake / phase_stake) × outcome`. The `prove_task_contribution()` circuit lets team members prove their individual trust contribution privately.
 
 ---
 
