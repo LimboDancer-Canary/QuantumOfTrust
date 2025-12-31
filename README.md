@@ -14,6 +14,7 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 
 - [**Whitepaper**](./QuantumOfTrust_v10.md) — Complete framework specification
 - [**Math Equations in Plain English**](./The_Quantum_of_Trust_Math_Equations_in_Plain_English.md) — Every equation explained with examples
+- [**The Difficulty of Assessing Difficulty**](./The_Difficulty_of_Assessing_Difficulty.md) — How difficulty ratings are determined at the task level
 - [**Sybil Resistance Architecture**](./Sybil_Resistance_Architecture.md) — Defense-in-depth design rationale
 
 ### Architecture Decisions
