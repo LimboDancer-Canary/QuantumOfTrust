@@ -473,21 +473,5 @@ AI may actually be *more* consistent than human estimators—and their calibrati
 
 ---
 
-## Next Steps
-
-1. **C# implementation**: Add `DifficultyAggregation` utility following existing `TaskDecomposition` pattern
-2. **Noir circuits**: Verify difficulty aggregation is compatible with ZK proving
-3. **Consider calibration tracking**: Decide if provider difficulty calibration becomes a tracked skill type
-
-*Note: No formula changes required. The existing equations already include difficulty (`d`) as a contract parameter. This document defines the process by which `d` is determined—provider assessment at task level, aggregating via stake-weighted average.*
-
-## Related Documents
-
-- **ADR_Subcontract_Architecture.md** — The foundational decision that phases and tasks are subcontracts
-- **The_Quantum_of_Trust_Math_Equations_in_Plain_English.md** — Threshold function and task decomposition equations
-- **Quantum_of_Trust_Equations_in_CSharp.md** — TaskDecomposition implementation pattern
-- **QoT_Professional_Network_UX_Analysis.md** — Team-based implementation and customer trust
-
----
 
 *This document accompanies the Quantum of Trust framework development.*
