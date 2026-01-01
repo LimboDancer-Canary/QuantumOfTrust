@@ -29,6 +29,10 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 
 - [**Blockchain Selection**](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md) — Why Aztec/Noir
 
+### Specifications
+
+- [**Aztec Contract Layer**](./QoT_Aztec_Contract_Layer_Specification.md) — Smart contract architecture for QoTRegistry, QoTEscrow, QoTAvatar
+
 ### Nostr Integration
 
 - [**Nostr Analysis**](./Nostr_Analysis.md) — Protocol evaluation for q⟨T⟩
