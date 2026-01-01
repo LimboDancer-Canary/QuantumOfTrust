@@ -20,9 +20,11 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 ### Architecture Decisions
 
 - [**Subcontract Architecture**](./ADR_Subcontract_Architecture.md) — Multi-phase contract decomposition
+- [**Milestone Payment Gates**](./ADR_Milestone_Payment_Gates.md) — Incremental payment through milestone completion
+- [**Dispute Resolution**](./ADR_Dispute_Resolution.md) — Deadline-based dispute handling
 - [**No Endorsements**](./ADR_No_Endorsements.md) — Why contract outcomes replace attestations
-- [**Conceptual/Implementation Boundary**](./ADR_Conceptual_Implementation_Boundary.md) — Separation of concerns
 - [**Trust Signal Boundaries**](./ADR_Trust_Signal_Boundaries.md) — What q⟨T⟩ captures vs excludes
+- [**Conceptual/Implementation Boundary**](./ADR_Conceptual_Implementation_Boundary.md) — Separation of concerns
 - [**Nostr Native Infrastructure**](./ADR_Nostr_Native_Infrastructure.md) — Native ecosystem patterns
 
 ### Platform
@@ -32,12 +34,15 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 ### Specifications
 
 - [**Aztec Contract Layer**](./QoT_Aztec_Contract_Layer_Specification.md) — Smart contract architecture for QoTRegistry, QoTEscrow, QoTAvatar
+- [**Nostria Client Specification**](./QoT_Nostria_Client_Specification.md) — Technical architecture for Nostr client integration
+- [**ZK Relay Integration Spec**](./ZK_Relay_Integration_Spec.md) — strfry extension architecture
 
 ### Nostr Integration
 
 - [**Nostr Analysis**](./Nostr_Analysis.md) — Protocol evaluation for q⟨T⟩
 - [**Nostr QoT Gap Analysis**](./Nostr_QoT_Gap_Analysis.md) — Feature gaps and solutions
-- [**ZK Relay Integration Spec**](./ZK_Relay_Integration_Spec.md) — strfry extension architecture
+- [**Nostria Implementation Plan**](./QoT_Nostria_Implementation_Plan.md) — Timeline and phases for Nostria integration
+- [**Nostria Component Templates**](./QoT_Nostria_Component_Templates.md) — Angular templates and implementation details
 
 ### Bitcoin Integration
 

@@ -1,14 +1,24 @@
 # Integrating Noir/Barretenberg ZK Verification into Nostr Relays
 
-## Technical Specification v2.0
+## Technical Specification v2.1
 
 *This specification describes how to extend Nostr relays to verify zero-knowledge proofs for Quantum of Trust (q⟨T⟩), using existing ecosystem patterns and minimal external infrastructure.*
+
+**Changelog:**
+- **v2.1** — Added relay-as-index-layer architecture (contract state events with single-letter tags), trust model for non-ZK events, client query patterns
+- **v2.0** — Initial specification with ZK verification pipeline
 
 ---
 
 ## Executive Summary
 
 Zero-knowledge proof verification can be added to Nostr relays using **strfry's writePolicy plugin system** with verification result caching via **Deno KV**. Verification keys are distributed via **Blossom** (NIP-B7), DoS protection uses **NIP-13 Proof of Work** combined with existing rate limiting, and authenticated sessions use **NIP-42**. This approach adds ZK verification capability with zero external infrastructure dependencies.
+
+**Dual Role:** The relay serves two purposes:
+1. **ZK Proof Verifier** — Validates eligibility proofs before accepting events
+2. **Queryable Contract Index** — Indexes contract state events by single-letter tags (NIP-01), eliminating the need for external indexer infrastructure (The Graph, Postgres)
+
+Both capabilities are additive to standard strfry behavior. Tag indexing is automatic per NIP-01; ZK verification is a writePolicy plugin.
 
 ---
 
@@ -47,8 +57,10 @@ Zero-knowledge proof verification can be added to Nostr relays using **strfry's 
 │  └───────────────────────────────────────────────────────────┘   │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │                   Writer Thread                           │   │
-│  │                   (LMDB storage)                          │   │
+│  │              Writer Thread + Index (LMDB)                 │   │
+│  │  - Stores events                                          │   │
+│  │  - Indexes single-letter tags (c, p, s, k) per NIP-01    │   │
+│  │  - Enables queries: #c, #p, #s, #k                        │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -59,6 +71,46 @@ Zero-knowledge proof verification can be added to Nostr relays using **strfry's 
 │         Files addressed by SHA-256 hash (BUD-01)                │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### 1.1 Relay as Index Layer
+
+Aztec blockchain stores contract state but only supports key→value lookups (no secondary indexes). Rather than deploying external indexer infrastructure, the relay **indexes contract state events** using NIP-01's single-letter tag requirement:
+
+```
+Aztec Blockchain (source of truth)
+       ▲
+       │ tx confirmation
+       │
+┌─────────────────────────────┐
+│  Nostria Client             │
+│  - Writes to Aztec          │──────┐
+│  - Mirrors state to Nostr   │      │ write-through
+│  - Adds indexed tags        │      │
+└─────────────────────────────┘      │
+                                     │
+       ┌─────────────────────────────┘
+       │ tagged events
+       ▼
+┌─────────────────────────────┐
+│  strfry Relay               │
+│  - Indexes single-letter    │
+│    tags automatically       │
+│  - Standard NIP-01 queries  │
+│  - ZK verification plugin   │
+└─────────────────────────────┘
+       │
+       │ subscription/query
+       ▼
+┌─────────────────────────────┐
+│  Any Nostr Client           │
+│  - Query by #c, #p, #s, #k  │
+│  - Real-time subscriptions  │
+└─────────────────────────────┘
+```
+
+**Write-through mirroring:** The client that performs an Aztec transaction publishes the corresponding Nostr event. Aztec has no native push subscriptions—the PXE syncs by polling blocks. See `QoT_Nostria_Implementation_Plan.md` Section 10.0 for detailed rationale.
+
+**No external indexer required.** Tag indexing is standard NIP-01 relay behavior; strfry implements this in its LMDB schema.
 
 ---
 
@@ -109,17 +161,63 @@ Following NIP-78 patterns, q⟨T⟩ uses **one addressable event kind** with `d`
 }
 ```
 
+#### Contract State Event (Indexed)
+
+Contract state events mirror on-chain Aztec contract state for queryability. They use **single-letter tags** which are automatically indexed by NIP-01 compliant relays, enabling queries like "all contracts where I'm customer."
+
+```json
+{
+  "kind": 30078,
+  "pubkey": "<contract-creator-pubkey>",
+  "created_at": 1704067200,
+  "tags": [
+    ["d", "qt:contract:<contract-id>"],
+    ["qt-type", "contract-state"],
+    ["c", "<customer-avatar-pubkey>"],
+    ["p", "<provider-avatar-pubkey>"],
+    ["s", "active"],
+    ["k", "software_engineering"]
+  ],
+  "content": "<NIP-44 encrypted contract details or state hash>",
+  "sig": "<schnorr-signature>"
+}
+```
+
+**Single-Letter Tags (NIP-01 Indexed):**
+
+| Tag | Purpose | Query Example |
+|-----|---------|---------------|
+| `c` | Customer Avatar pubkey | `{"#c": ["<my-pubkey>"]}` |
+| `p` | Provider Avatar pubkey | `{"#p": ["<my-pubkey>"]}` |
+| `s` | Status (pending, active, completed, disputed, cancelled) | `{"#s": ["active"]}` |
+| `k` | Skill domain | `{"#k": ["software_engineering"]}` |
+
+Per NIP-01: "all single-letter (a-z, A-Z) key tags are expected to be indexed by relays." strfry's LMDB schema includes these tags in its PackedEvent format for efficient indexing.
+
 ### 2.2 Tag Semantics
+
+**Multi-Letter Tags (Application-Specific):**
 
 | Tag | Purpose | Required |
 |-----|---------|----------|
 | `d` | Addressable identifier with namespace | Yes |
-| `qt-type` | Event type: `trust-score`, `zk-proof`, `attestation` | Yes |
+| `qt-type` | Event type: `trust-score`, `zk-proof`, `contract-state`, `attestation` | Yes |
 | `qt-circuit` | Circuit identifier for proof verification | For proofs |
 | `qt-domain` | Skill domain (scopes trust independently) | Yes |
 | `qt-threshold` | Public input: minimum trust threshold claimed | For proofs |
 | `qt-vk` | Blossom SHA-256 hash of verification key | For proofs |
-| `nonce` | NIP-13 Proof of Work (required for ZK events) | Yes |
+| `nonce` | NIP-13 Proof of Work (required for ZK events) | For proofs |
+
+**Single-Letter Tags (NIP-01 Indexed):**
+
+| Tag | Purpose | Indexed | Used In |
+|-----|---------|---------|---------|
+| `c` | Customer Avatar pubkey | ✅ Yes | contract-state |
+| `p` | Provider Avatar pubkey | ✅ Yes | contract-state |
+| `s` | Contract status | ✅ Yes | contract-state |
+| `k` | Skill domain (queryable) | ✅ Yes | contract-state |
+
+Single-letter tags enable efficient relay queries without external indexer infrastructure.
 
 ### 2.3 Namespace Conventions
 
@@ -127,9 +225,40 @@ Following NIP-78 patterns, q⟨T⟩ uses **one addressable event kind** with `d`
 qt:score:<domain>                    # Trust scores
 qt:proof:eligibility:<domain>        # Eligibility proofs
 qt:proof:membership:<dao-id>         # DAO membership proofs
+qt:contract:<contract-id>            # Contract state (indexed)
 qt:attestation:<attester>:<domain>   # Trust attestations
 qt:circuit:<circuit-id>              # Circuit metadata
 ```
+
+### 2.4 Trust Model for Contract State Events
+
+Contract state events are self-attested (any client can publish them). Since Aztec blockchain is the source of truth, three mechanisms ensure integrity:
+
+| Mechanism | Layer | Description |
+|-----------|-------|-------------|
+| **Verification on read** | Client | Before high-stakes operations (accepting contracts, signing off), clients verify against Aztec on-chain state |
+| **ZK proofs in events** | Optional | Contract state events MAY include a ZK proof of on-chain state in the content field |
+| **Relay filtering** | Relay | ZK-verifier relays reject contract-state events with invalid proofs (if proof is present) |
+
+**Client-Side Verification Example:**
+
+```typescript
+async function acceptContract(contractId: string): Promise<void> {
+  // 1. Get from Nostr (fast, for display)
+  const nostrState = await this.getContractFromRelay(contractId);
+  
+  // 2. Verify against Aztec (authoritative) before committing
+  const aztecState = await this.aztec.getContractState(contractId);
+  if (!this.statesMatch(nostrState, aztecState)) {
+    throw new Error('Contract state mismatch - possible stale data');
+  }
+  
+  // 3. Proceed with on-chain operation
+  await this.aztec.acceptListing(contractId);
+}
+```
+
+**Design Principle:** The Nostr layer is a queryable cache/index of Aztec state, not the source of truth. Aztec remains authoritative; Nostr provides discoverability and real-time subscriptions.
 
 ---
 
@@ -426,6 +555,16 @@ function isZKProofEvent(event: NostrEvent): boolean {
   return event.tags.some(t => t[0] === "qt-type" && t[1] === "zk-proof");
 }
 
+// Check if event is a contract state event (indexed for queries)
+function isContractStateEvent(event: NostrEvent): boolean {
+  return event.tags.some(t => t[0] === "qt-type" && t[1] === "contract-state");
+}
+
+// Check if event is any q<T> event
+function isQTEvent(event: NostrEvent): boolean {
+  return event.tags.some(t => t[0] === "qt-type");
+}
+
 // Extract ZK-related data from event
 function extractZKData(event: NostrEvent) {
   const getTag = (name: string) => event.tags.find(t => t[0] === name)?.[1];
@@ -439,12 +578,63 @@ function extractZKData(event: NostrEvent) {
   };
 }
 
+// Validate contract state event structure
+function validateContractStateEvent(event: NostrEvent): string | null {
+  const getTag = (name: string) => event.tags.find(t => t[0] === name)?.[1];
+  
+  // Required single-letter indexed tags
+  const customer = getTag("c");
+  const provider = getTag("p");
+  const status = getTag("s");
+  const skillDomain = getTag("k");
+  
+  if (!customer || !provider) {
+    return "invalid: contract-state must have 'c' (customer) and 'p' (provider) tags";
+  }
+  
+  if (!status) {
+    return "invalid: contract-state must have 's' (status) tag";
+  }
+  
+  const validStatuses = ["pending", "active", "completed", "disputed", "cancelled"];
+  if (!validStatuses.includes(status)) {
+    return `invalid: status must be one of: ${validStatuses.join(", ")}`;
+  }
+  
+  return null; // Valid
+}
+
 // Main ZK verification policy
 async function zkVerifyPolicy(msg: InputMessage): Promise<OutputMessage> {
   const { event } = msg;
   
-  // Pass through non-ZK events
-  if (!isZKProofEvent(event)) {
+  // Pass through non-q<T> events (standard Nostr events)
+  if (!isQTEvent(event)) {
+    return { id: event.id, action: "accept" };
+  }
+  
+  // Handle contract-state events (indexed for queries)
+  if (isContractStateEvent(event)) {
+    // Validate structure
+    const validationError = validateContractStateEvent(event);
+    if (validationError) {
+      return { id: event.id, action: "reject", msg: validationError };
+    }
+    
+    // Contract-state events with embedded ZK proof get verified
+    // (content may contain optional proof of on-chain state)
+    const hasEmbeddedProof = event.tags.some(t => t[0] === "qt-vk");
+    if (hasEmbeddedProof) {
+      // Fall through to ZK verification below
+    } else {
+      // No proof - accept for indexing (client verifies against Aztec on read)
+      return { id: event.id, action: "accept" };
+    }
+  }
+  
+  // Handle ZK proof events (require verification)
+  if (!isZKProofEvent(event) && !isContractStateEvent(event)) {
+    // Other q<T> event types (trust-score, attestation) - accept without ZK check
     return { id: event.id, action: "accept" };
   }
   
@@ -517,20 +707,28 @@ async function zkVerifyPolicy(msg: InputMessage): Promise<OutputMessage> {
 // Compose pipeline with existing policies
 for await (const msg of readStdin()) {
   const result = await pipeline(msg, [
-    // 1. Require PoW for q<T> events (DoS protection)
+    // 1. Require PoW for ZK proof events only (expensive to verify)
     [powPolicy, { 
       difficulty: 16,
-      filter: (e) => e.tags.some(t => t[0] === "qt-type")
+      filter: (e) => e.tags.some(t => t[0] === "qt-type" && t[1] === "zk-proof")
     }],
     
-    // 2. Rate limit by pubkey
+    // 2. Rate limit by pubkey (applies to all q<T> events)
     [rateLimitPolicy, { 
       whitelist: ['127.0.0.1'],
-      limit: 10,
+      limit: 100,  // Higher limit for contract-state updates
       window: 60000
     }],
     
-    // 3. ZK verification
+    // 3. Stricter rate limit for ZK proof events
+    [rateLimitPolicy, { 
+      whitelist: ['127.0.0.1'],
+      limit: 10,
+      window: 60000,
+      filter: (e) => e.tags.some(t => t[0] === "qt-type" && t[1] === "zk-proof")
+    }],
+    
+    // 4. ZK verification and contract-state validation
     zkVerifyPolicy
   ]);
   
@@ -748,6 +946,89 @@ async function verifyProofEvent(event: NostrEvent): Promise<boolean> {
     proof,
     publicInputs: [BigInt(threshold)]
   });
+}
+```
+
+### 8.3 Querying Contract State (Indexed Events)
+
+The relay automatically indexes single-letter tags per NIP-01. Clients query contracts using standard Nostr filters:
+
+```typescript
+import { SimplePool } from 'nostr-tools';
+
+async function queryMyContracts(
+  myPubkey: string,
+  relays: string[]
+): Promise<NostrEvent[]> {
+  const pool = new SimplePool();
+  
+  // Query contracts where I'm customer OR provider
+  const events = await pool.querySync(relays, [
+    { kinds: [30078], "#c": [myPubkey] },  // I'm customer
+    { kinds: [30078], "#p": [myPubkey] }   // I'm provider
+  ]);
+  
+  // Dedupe (same contract may match both filters if I'm both parties)
+  const unique = new Map(events.map(e => [e.id, e]));
+  return [...unique.values()];
+}
+
+// Subscribe to real-time contract updates
+function subscribeToMyContracts(
+  myPubkey: string,
+  relays: string[],
+  onEvent: (event: NostrEvent) => void
+): () => void {
+  const pool = new SimplePool();
+  
+  const sub = pool.subscribeMany(relays, [
+    { kinds: [30078], "#c": [myPubkey] },
+    { kinds: [30078], "#p": [myPubkey] }
+  ], {
+    onevent: onEvent
+  });
+  
+  // Return unsubscribe function
+  return () => sub.close();
+}
+
+// Query by status and skill domain
+async function queryActiveContractsInDomain(
+  domain: string,
+  relays: string[]
+): Promise<NostrEvent[]> {
+  const pool = new SimplePool();
+  
+  return pool.querySync(relays, [{
+    kinds: [30078],
+    "#s": ["active"],
+    "#k": [domain]
+  }]);
+}
+```
+
+**Trust Verification:** For high-stakes operations, verify against Aztec before proceeding:
+
+```typescript
+async function acceptContractWithVerification(
+  contractId: string,
+  nostrEvent: NostrEvent,
+  aztecService: AztecService
+): Promise<void> {
+  // 1. Parse Nostr event
+  const nostrState = parseContractEvent(nostrEvent);
+  
+  // 2. Verify against Aztec (source of truth)
+  const aztecState = await aztecService.getContractState(contractId);
+  
+  if (nostrState.status !== aztecState.status ||
+      nostrState.customer !== aztecState.customer.toString() ||
+      nostrState.provider !== aztecState.provider.toString()) {
+    throw new Error('State mismatch: Nostr cache is stale');
+  }
+  
+  // 3. Proceed with on-chain operation
+  await aztecService.acceptListing(contractId);
 }
 ```
 

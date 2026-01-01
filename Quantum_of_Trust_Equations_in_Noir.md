@@ -21,7 +21,7 @@ The critical insight: **we don't compute trust values to return them. We prove s
 11. **DAO aggregation** -- Proving composite trust
 12. **Sybil resistance** -- How privacy preserves the economic guarantees
 13. **Customer skill types** -- Bidirectional trust for consumers
-14. **Hierarchical contracts** -- Project → Phase → Task decomposition
+14. **Hierarchical contracts** -- Project → Phase → Milestone → Task decomposition
 15. **Customer trust computation** -- Trust from behavior, not assigned outcomes
 16. **Verification weight** -- Customer credibility affects rating influence
 17. **Task decomposition** -- Team-based implementation with sub-subcontracts
@@ -3410,36 +3410,48 @@ impl CustomerSkillType {
 
 Contracts can be organized hierarchically:
 
-$$\text{ContractType} \in \{\text{standalone}, \text{specification}, \text{planning}, \text{implementation}, \text{task}\}$$
+$$\text{ContractType} \in \{\text{standalone}, \text{specification}, \text{planning}, \text{implementation}, \text{task}, \text{milestone}\}$$
 
-$$\text{Project} \rightarrow \text{Phases} \rightarrow \text{Tasks}$$
+$$\text{Project} \rightarrow \text{Phases} \rightarrow \text{Milestones} \rightarrow \text{Tasks}$$
 
 ### Plain English
 
-> "Contracts have a type that indicates where they fit in a project hierarchy. A project contains phases, and phases contain tasks. Each level is a full contract with its own trust contribution."
+> "Contracts have a type that indicates where they fit in a project hierarchy. A project contains phases, implementation phases contain milestones (payment gates), and milestones contain tasks. Each task is a full contract with its own trust contribution. Trust flows through tasks, not milestones—milestones are coordination containers."
 
 **The contract types**:
 
 1. **Standalone**: A single contract not part of any project
 2. **Specification**: Phase 1 — defining what needs to be built
-3. **Planning**: Phase 2 — breaking down how to build it
+3. **Planning**: Phase 2 — breaking down how to build it, including task definitions and milestone groupings
 4. **Implementation**: Phase 3 — actually building it
-5. **Task**: A sub-subcontract within a phase
+5. **Milestone**: A payment gate within implementation phase, batches related tasks
+6. **Task**: An atomic work unit within a milestone
 
 **The hierarchy**:
 ```
 Project
 ├── Specification Phase (contract)
 ├── Planning Phase (contract)
+│   └── Outputs: Task definitions, Milestone groupings
+│
 └── Implementation Phase (contract)
-    ├── Task 1 (sub-contract, maybe different provider)
-    ├── Task 2 (sub-contract, maybe different provider)
-    └── Task 3 (sub-contract, maybe different provider)
+    ├── Milestone 1 (contract, payment gate)
+    │   ├── Task A (contract, provider: Alice)
+    │   ├── Task B (contract, provider: Bob)
+    │   └── Task C (contract, provider: Alice)
+    │   └── Milestone deadline = max(task deadlines)
+    │
+    ├── Milestone 2 (contract, payment gate)
+    │   └── Tasks...
+    │
+    └── Milestone N...
 ```
 
-**Why hierarchical?** Real projects have structure. Breaking work into phases and tasks enables team-based implementation, individual accountability, and more accurate difficulty assessment.
+**Why milestones?** Milestones create incremental payment gates that reduce provider risk. Customer reviews at milestone deadline: accept all tasks, dispute specific tasks, or timeout. Non-disputed tasks are paid immediately; disputed tasks enter arbitration. See **ADR_Milestone_Payment_Gates.md** for details.
 
-Each level is a full contract with its own trust contribution.
+**Why hierarchical?** Real projects have structure. Breaking work into phases, milestones, and tasks enables team-based implementation, individual accountability, incremental payment, and more accurate difficulty assessment.
+
+Each task is a full contract with its own trust contribution. Milestones coordinate payment but do not independently contribute to trust.
 
 ### Noir Implementation
 
@@ -3460,8 +3472,11 @@ global CONTRACT_TYPE_PLANNING: Field = 2;
 /// Implementation phase of a project.
 global CONTRACT_TYPE_IMPLEMENTATION: Field = 3;
 
-/// Task within a phase (sub-subcontract).
+/// Task within a milestone (atomic work unit).
 global CONTRACT_TYPE_TASK: Field = 4;
+
+/// Milestone within implementation phase (payment gate).
+global CONTRACT_TYPE_MILESTONE: Field = 5;
 
 /// Contract type for hierarchical classification.
 struct ContractType {
@@ -3489,6 +3504,10 @@ impl ContractType {
         ContractType { inner: CONTRACT_TYPE_TASK }
     }
     
+    fn milestone() -> Self {
+        ContractType { inner: CONTRACT_TYPE_MILESTONE }
+    }
+    
     fn eq(self, other: ContractType) -> bool {
         self.inner == other.inner
     }
@@ -3501,16 +3520,29 @@ impl ContractType {
     fn is_task(self) -> bool {
         self.inner == CONTRACT_TYPE_TASK
     }
+    
+    fn is_milestone(self) -> bool {
+        self.inner == CONTRACT_TYPE_MILESTONE
+    }
 }
 
 /// Extended contract with hierarchical fields.
 /// 
 /// Extends the base Contract with:
 /// - `contract_type`: Classification in the hierarchy
-/// - `parent_id`: Reference to parent contract (for tasks)
+/// - `parent_id`: Reference to parent contract (milestone for tasks, phase for milestones)
 /// - `project_id`: Reference to parent project (for phases)
-/// - `task_weight`: Proportional weight within phase (for tasks)
+/// - `task_weight`: Proportional weight within milestone (for tasks)
 /// - `planning_accuracy`: Tasks completed as planned (for implementation phases)
+/// - `deadline`: Work duration deadline (for tasks) or computed deadline (for milestones)
+/// 
+/// The 4-level hierarchy:
+/// - Project → contains Phases
+/// - Phase → contains Milestones (implementation phase only)
+/// - Milestone → contains Tasks (payment gate)
+/// - Task → atomic work unit
+/// 
+/// Trust flows through tasks. Milestones are coordination containers.
 struct HierarchicalContract {
     /// Base contract fields
     counterparty: AgentId,
@@ -3524,10 +3556,13 @@ struct HierarchicalContract {
     /// Hierarchical classification
     contract_type: ContractType,
     
-    /// Parent contract ID (for tasks within phases)
+    /// Parent contract ID
+    /// - For tasks: parent milestone ID
+    /// - For milestones: parent implementation phase ID
+    /// - For phases: 0 (phases have no parent contract, only project)
     parent_id: Field,
     
-    /// Project ID (for phases within projects)
+    /// Project ID (for phases and milestones within projects)
     project_id: Field,
     
     /// Task weight for proportional stake allocation (scaled by PRECISION)
@@ -3537,6 +3572,11 @@ struct HierarchicalContract {
     /// Planning accuracy: tasks_as_planned / total_tasks (scaled by PRECISION)
     /// Only used for CONTRACT_TYPE_IMPLEMENTATION
     planning_accuracy: Field,
+    
+    /// Work duration deadline (for tasks) - planning data, not payment trigger
+    /// Milestone deadline is computed: max(task.deadline for task in milestone)
+    /// Only used for CONTRACT_TYPE_TASK
+    deadline: Field,
 }
 
 impl HierarchicalContract {
@@ -3555,6 +3595,7 @@ impl HierarchicalContract {
             project_id: 0,
             task_weight: PRECISION,  // Default weight of 1.0
             planning_accuracy: PRECISION,  // Default 100% accuracy
+            deadline: 0,  // No deadline by default
         }
     }
     
@@ -3583,6 +3624,11 @@ impl HierarchicalContract {
     /// Checks if this is a task contract.
     fn is_task(self) -> bool {
         self.contract_type.is_task()
+    }
+    
+    /// Checks if this is a milestone contract (payment gate).
+    fn is_milestone(self) -> bool {
+        self.contract_type.is_milestone()
     }
     
     /// Checks if this is a phase contract.
@@ -4566,9 +4612,13 @@ fn prove_task_contribution(
 | $\omega'(c) = \omega(c) \cdot \psi(c)$ | `compute_adjusted_contribution(contract, profile) -> Signed` |
 | $V_t^{\psi}(a) = \sum_c \omega'(c) \cdot o(c)$ | `compute_trust_value_with_verification()` |
 | **Hierarchical Contracts** | |
-| $\text{type}(c) \in \{\text{standalone}, ..., \text{task}\}$ | `ContractType` struct + constants (`CONTRACT_TYPE_*`) |
-| $c_{\text{hier}} = (c, \text{type}, \text{parent}, \text{project})$ | `HierarchicalContract { ..., contract_type, parent_id, project_id, ... }` |
+| $\text{type}(c) \in \{\text{standalone}, ..., \text{milestone}\}$ | `ContractType` struct + constants (`CONTRACT_TYPE_*`, 0-5) |
+| $c_{\text{hier}} = (c, \text{type}, \text{parent}, \text{project})$ | `HierarchicalContract { ..., contract_type, parent_id, project_id, deadline, ... }` |
 | $\text{accuracy} = \frac{n_{\text{as\_planned}}}{n_{\text{total}}}$ | `compute_planning_accuracy(tasks_as_planned, total_tasks) -> Field` |
+| **Milestones (Payment Gates)** | |
+| $\text{Milestone}(\{T_i\})$ | `MilestoneWithTasks { milestone, tasks, task_count }` |
+| $d_{\text{milestone}} = \max_i(d_{\text{task}_i})$ | Computed from task deadlines (not stored) |
+| $s_{\text{milestone}} = \sum_i s_{\text{task}_i}$ | Computed from task stakes (not stored) |
 | **Task Decomposition** | |
 | $s_{\text{task}} = s_{\text{phase}} \cdot \frac{w_{\text{task}}}{\sum_i w_i}$ | `compute_task_stake(phase_stake, task_weight, total_weight) -> Field` |
 | $\text{Task} = (\text{id}, a_{\text{provider}}, w, o, d)$ | `Task { task_id, provider, weight, outcome_offset, ... }` |
@@ -4619,11 +4669,15 @@ Customer credibility affects how much their ratings contribute to provider trust
 
 ### 10. Hierarchical Contracts for Team-Based Work
 
-The `ContractType` enum and `HierarchicalContract` struct enable Project → Phase → Task decomposition. Each level is a full contract with its own trust contribution. The `PhaseWithTasks` struct aggregates task contributions while enabling individual team members to prove their specific contribution without revealing the full phase structure.
+The `ContractType` enum and `HierarchicalContract` struct enable Project → Phase → Milestone → Task decomposition. Each task is a full contract with its own trust contribution. Milestones are coordination containers that batch tasks into reviewable units with a single payment gate. Trust flows through tasks, not milestones. The `PhaseWithTasks` struct aggregates task contributions while enabling individual team members to prove their specific contribution without revealing the full phase structure.
 
 ### 11. Task-Level Trust Attribution
 
-Tasks within phases can have different providers, enabling specialist collaboration. Each task's contribution is proportional to its weight within the phase: `task_contribution = phase_weight × (task_stake / phase_stake) × outcome`. The `prove_task_contribution()` circuit lets team members prove their individual trust contribution privately.
+Tasks within milestones can have different providers, enabling specialist collaboration. Each task's contribution is proportional to its weight within the milestone: `task_contribution = milestone_weight × (task_stake / milestone_stake) × outcome`. The `prove_task_contribution()` circuit lets team members prove their individual trust contribution privately.
+
+### 12. Milestone Payment Gates
+
+Milestones create incremental payment gates within the Implementation phase. Customer reviews at milestone deadline: accept all tasks, dispute specific tasks, or timeout. Non-disputed tasks are paid immediately; disputed tasks enter arbitration. Milestone deadline is computed from max(task deadlines); milestone stake is computed from sum(task stakes). See **ADR_Milestone_Payment_Gates.md** and **ADR_Dispute_Resolution.md** for details.
 
 ---
 

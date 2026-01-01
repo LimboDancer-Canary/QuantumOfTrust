@@ -140,12 +140,40 @@ Protocol Floor (hardcoded, immutable)
    └─────┬─────┘
          │
          ▼
+   ┌─────┴──────┐
+   │ Milestones │ ← Payment gates (within Implementation phase)
+   └─────┬──────┘
+         │
+         ▼
    ┌─────┴─────┐
-   │   Tasks   │
+   │   Tasks   │ ← Atomic work units
    └───────────┘
 ```
 
 Parameters can only be made **stricter**, never looser than protocol floor.
+
+### Contract Hierarchy
+
+```
+Project
+├── Specification Phase (contract)
+├── Planning Phase (contract)
+│   └── Outputs: Task definitions, Milestone groupings
+│
+└── Implementation Phase (contract)
+    ├── Milestone 1 (contract, payment gate)
+    │   ├── Task A (contract)
+    │   ├── Task B (contract)
+    │   └── Task C (contract)
+    │   └── Milestone deadline = max(task deadlines)
+    │
+    ├── Milestone 2 (contract, payment gate)
+    │   └── Tasks...
+    │
+    └── Milestone N...
+```
+
+**Milestones** are payment gates that batch tasks into reviewable units. Customer reviews at milestone deadline: accept, dispute specific tasks, or timeout. See **ADR_Milestone_Payment_Gates.md** for details.
 
 ---
 
@@ -233,6 +261,49 @@ global CANCELLATION_GRACE_PERIOD: Field = 7200;
 
 /// Reserved skill type for customer commitment tracking
 global SKILL_TYPE_CUSTOMER_COMMITMENT: Field = 1000001;
+
+/// Reserved skill type for dispute resolution (arbitrators)
+global SKILL_DISPUTE_RESOLUTION: Field = 2000001;
+
+
+// =============================================================================
+// CONTRACT TYPE CONSTANTS
+// =============================================================================
+
+/// Standalone contract, not part of a project
+global CONTRACT_TYPE_STANDALONE: Field = 0;
+
+/// Specification phase of a project
+global CONTRACT_TYPE_SPECIFICATION: Field = 1;
+
+/// Planning phase of a project
+global CONTRACT_TYPE_PLANNING: Field = 2;
+
+/// Implementation phase of a project
+global CONTRACT_TYPE_IMPLEMENTATION: Field = 3;
+
+/// Task within a milestone (atomic work unit)
+global CONTRACT_TYPE_TASK: Field = 4;
+
+/// Milestone within implementation phase (payment gate)
+global CONTRACT_TYPE_MILESTONE: Field = 5;
+
+
+// =============================================================================
+// DISPUTE RESOLUTION CONSTANTS
+// =============================================================================
+
+/// Tier 1 arbitration fee (10% of task stake)
+global TIER1_FEE_PCT: Field = 10;
+
+/// Tier 2 appeal fee (15% of remaining pool)
+global TIER2_FEE_PCT: Field = 15;
+
+/// Default appeal window (~3.5 days at 12s blocks)
+global DEFAULT_APPEAL_WINDOW: Field = 25200;
+
+/// Default arbitration timeout (~14 days)
+global DEFAULT_ARBITRATION_TIMEOUT: Field = 100800;
 ```
 
 ### Sybil Parameters Struct
@@ -1007,6 +1078,148 @@ struct CancelRequest {
     initiator: AztecAddress,
     initiated_at: Field,
 }
+
+/// Milestone within Implementation phase (payment gate)
+/// See ADR_Milestone_Payment_Gates.md for full specification
+struct Milestone {
+    /// Unique milestone identifier
+    milestone_id: Field,
+    
+    /// Project this milestone belongs to
+    project_id: Field,
+    
+    /// Parent implementation phase
+    parent_phase_id: Field,
+    
+    /// Customer Avatar (inherited from phase)
+    customer: AztecAddress,
+    
+    /// Milestone status
+    status: MilestoneStatus,
+    
+    /// Arbitration parameters (inherited from project)
+    arbitrator_min_trust: Field,
+    
+    // Note: completion_deadline and stake are COMPUTED from child tasks:
+    // completion_deadline = max(task.deadline for task in tasks)
+    // stake = sum(task.stake for task in tasks)
+}
+
+enum MilestoneStatus {
+    Active,           // Work in progress
+    Accepted,         // Customer accepted all tasks
+    PartialDispute,   // Some tasks disputed, others accepted
+    Resolved,         // All disputes resolved
+    TimedOut,         // Deadline passed, payment released
+}
+
+/// Task within a Milestone (atomic work unit)
+struct Task {
+    /// Unique task identifier
+    task_id: Field,
+    
+    /// Project this task belongs to
+    project_id: Field,
+    
+    /// Parent milestone (payment gate)
+    parent_milestone_id: Field,
+    
+    /// Customer Avatar (inherited from milestone)
+    customer: AztecAddress,
+    
+    /// Provider Avatar assigned to this task
+    provider: AztecAddress,
+    
+    /// Required skill type
+    skill_type: Field,
+    
+    /// Task stake (payment to provider on acceptance)
+    stake: Field,
+    
+    /// Task difficulty (set by provider at acceptance)
+    difficulty: Field,
+    
+    /// Work duration deadline (planning data, not review trigger)
+    /// Customer review happens at parent milestone deadline
+    deadline: Field,
+    
+    /// Task status
+    status: TaskStatus,
+    
+    /// Final outcome (set on acceptance or arbitration)
+    outcome: Option<Field>,
+    
+    /// Final payout percentage (100 unless arbitrated)
+    payout_pct: Option<Field>,
+    
+    /// Appeal window for arbitration
+    appeal_window_blocks: Field,
+    
+    /// Arbitrator eligibility threshold
+    arbitrator_min_trust: Field,
+    
+    /// Dispute state (if disputed)
+    dispute_state: Option<DisputeState>,
+}
+
+enum TaskStatus {
+    Active,       // Work in progress
+    Accepted,     // Paid via milestone acceptance or timeout
+    Disputed,     // Arbitration in progress
+    Resolved,     // Arbitration complete
+}
+
+/// Dispute state for a task under arbitration
+struct DisputeState {
+    /// Current dispute status
+    status: DisputeStatus,
+    
+    /// When dispute was initiated
+    initiated_at: Field,
+    
+    /// Customer's evidence hash (off-chain evidence, on-chain commitment)
+    customer_evidence_hash: Field,
+    
+    /// Provider's evidence hash
+    provider_evidence_hash: Field,
+    
+    /// Tier 1 arbitrator (if selected)
+    tier1_arbitrator: Option<AztecAddress>,
+    
+    /// When Tier 1 arbitrator accepted
+    tier1_accepted_at: Option<Field>,
+    
+    /// Tier 1 ruling (payout percentage 0-100)
+    tier1_payout_pct: Option<Field>,
+    
+    /// When Tier 1 was resolved
+    tier1_resolved_at: Option<Field>,
+    
+    /// Appeal initiated by (if appealed)
+    appealed_by: Option<AztecAddress>,
+    
+    /// Tier 2 panel (if appeal)
+    panel: Option<[AztecAddress; 3]>,
+    
+    /// Panel votes
+    panel_votes: Option<[Field; 3]>,
+    
+    /// Tier 2 ruling
+    tier2_payout_pct: Option<Field>,
+}
+
+enum DisputeStatus {
+    None,                // No dispute
+    Initiated,           // Customer disputed, awaiting arbitrator selection
+    Tier1Pending,        // Arbitrator agreed, awaiting acceptance
+    Tier1InProgress,     // Arbitrator reviewing
+    Tier1Resolved,       // Tier 1 complete, appeal window open
+    AppealInitiated,     // Appeal filed, awaiting panel selection
+    Tier2Pending,        // Panel agreed, awaiting acceptance
+    Tier2InProgress,     // Panel reviewing
+    Resolved,            // Final resolution
+    Deadlocked,          // Couldn't agree on arbitrator(s)
+}
 ```
 
 ### Public Functions
@@ -1259,6 +1472,232 @@ fn release_stake(
     transfer_from_escrow(owner, amount);
     
     emit_stake_released(owner, reference_id, amount);
+}
+```
+
+### Milestone Operations
+
+Milestones batch tasks into reviewable units. Customer reviews at milestone deadline.
+See **ADR_Milestone_Payment_Gates.md** and **ADR_Dispute_Resolution.md** for full specification.
+
+```noir
+/// Accept entire milestone — all tasks paid
+#[aztec(public)]
+fn accept_milestone(milestone_id: Field) {
+    let milestone = storage.milestones.at(milestone_id).read();
+    
+    // Only customer can accept
+    assert(context.msg_sender() == milestone.customer);
+    
+    // Milestone must be active
+    assert(milestone.status == MilestoneStatus::Active);
+    
+    // Compute milestone deadline from max of task deadlines
+    let deadline = compute_milestone_deadline(milestone_id);
+    assert(context.block_number() <= deadline);
+    
+    // Pay each task's stake to its provider
+    let task_ids = get_milestone_tasks(milestone_id);
+    for task_id in task_ids {
+        let mut task = storage.tasks.at(task_id).read();
+        
+        // Release stake to provider
+        transfer(task.provider, task.stake);
+        
+        // Record outcome
+        task.status = TaskStatus::Accepted;
+        task.outcome = Some(PRECISION);  // +1.0 scaled
+        task.payout_pct = Some(100);
+        storage.tasks.at(task_id).write(task);
+        
+        // Update provider trust
+        QoTAvatar::at(storage.avatar_contract.read()).record_contract_completion(
+            task.provider,
+            milestone.customer,
+            task.skill_type,
+            task.stake,
+            task.difficulty,
+            PRECISION,  // +1.0 outcome
+            milestone.sybil_params,
+        );
+    }
+    
+    // Update customer trust (verification skill)
+    QoTAvatar::at(storage.avatar_contract.read()).record_contract_completion(
+        milestone.customer,
+        milestone.customer,  // Self-counterparty for verification
+        SKILL_TYPE_CUSTOMER_COMMITMENT,
+        compute_milestone_stake(milestone_id),
+        PRECISION,  // Standard difficulty for verification
+        PRECISION,  // +1.0 outcome
+        milestone.sybil_params,
+    );
+    
+    // Update milestone status
+    let mut milestone = milestone;
+    milestone.status = MilestoneStatus::Accepted;
+    storage.milestones.at(milestone_id).write(milestone);
+    
+    emit MilestoneAccepted { milestone_id };
+}
+
+/// Dispute specific tasks within a milestone — non-disputed tasks paid immediately
+#[aztec(public)]
+fn dispute_tasks(
+    milestone_id: Field,
+    task_ids_to_dispute: [Field; MAX_TASKS],
+    num_disputed: Field,
+    evidence_hash: Field,
+) {
+    let milestone = storage.milestones.at(milestone_id).read();
+    
+    // Only customer can dispute
+    assert(context.msg_sender() == milestone.customer);
+    
+    // Milestone must be active
+    assert(milestone.status == MilestoneStatus::Active);
+    
+    // Compute milestone deadline
+    let deadline = compute_milestone_deadline(milestone_id);
+    assert(context.block_number() <= deadline);
+    
+    // Process all tasks in milestone
+    let all_task_ids = get_milestone_tasks(milestone_id);
+    for task_id in all_task_ids {
+        let mut task = storage.tasks.at(task_id).read();
+        
+        // Check if this task is being disputed
+        let is_disputed = array_contains(task_ids_to_dispute, num_disputed, task_id);
+        
+        if is_disputed {
+            // Disputed task enters arbitration
+            task.status = TaskStatus::Disputed;
+            task.dispute_state = Some(DisputeState {
+                status: DisputeStatus::Initiated,
+                initiated_at: context.block_number(),
+                customer_evidence_hash: evidence_hash,
+                provider_evidence_hash: 0,
+                tier1_arbitrator: None,
+                tier1_accepted_at: None,
+                tier1_payout_pct: None,
+                tier1_resolved_at: None,
+                appealed_by: None,
+                panel: None,
+                panel_votes: None,
+                tier2_payout_pct: None,
+            });
+        } else {
+            // Non-disputed task paid immediately
+            transfer(task.provider, task.stake);
+            
+            task.status = TaskStatus::Accepted;
+            task.outcome = Some(PRECISION);
+            task.payout_pct = Some(100);
+            
+            // Update provider trust
+            QoTAvatar::at(storage.avatar_contract.read()).record_contract_completion(
+                task.provider,
+                milestone.customer,
+                task.skill_type,
+                task.stake,
+                task.difficulty,
+                PRECISION,
+                milestone.sybil_params,
+            );
+        }
+        
+        storage.tasks.at(task_id).write(task);
+    }
+    
+    // Update milestone status
+    let mut milestone = milestone;
+    milestone.status = MilestoneStatus::PartialDispute;
+    storage.milestones.at(milestone_id).write(milestone);
+    
+    emit TasksDisputed { milestone_id, task_ids: task_ids_to_dispute, num_disputed, evidence_hash };
+}
+
+/// Timeout milestone — all tasks paid after deadline passes
+#[aztec(public)]
+fn timeout_milestone(milestone_id: Field) {
+    let milestone = storage.milestones.at(milestone_id).read();
+    
+    // Milestone must be active
+    assert(milestone.status == MilestoneStatus::Active);
+    
+    // Deadline must have passed
+    let deadline = compute_milestone_deadline(milestone_id);
+    assert(context.block_number() > deadline);
+    
+    // Pay all tasks — customer forfeited their review
+    let task_ids = get_milestone_tasks(milestone_id);
+    for task_id in task_ids {
+        let mut task = storage.tasks.at(task_id).read();
+        
+        transfer(task.provider, task.stake);
+        
+        task.status = TaskStatus::Accepted;
+        task.outcome = Some(PRECISION);
+        task.payout_pct = Some(100);
+        storage.tasks.at(task_id).write(task);
+        
+        // Update provider trust
+        QoTAvatar::at(storage.avatar_contract.read()).record_contract_completion(
+            task.provider,
+            milestone.customer,
+            task.skill_type,
+            task.stake,
+            task.difficulty,
+            PRECISION,
+            milestone.sybil_params,
+        );
+    }
+    
+    // Update customer trust
+    QoTAvatar::at(storage.avatar_contract.read()).record_contract_completion(
+        milestone.customer,
+        milestone.customer,
+        SKILL_TYPE_CUSTOMER_COMMITMENT,
+        compute_milestone_stake(milestone_id),
+        PRECISION,
+        PRECISION,
+        milestone.sybil_params,
+    );
+    
+    // Update milestone status
+    let mut milestone = milestone;
+    milestone.status = MilestoneStatus::TimedOut;
+    storage.milestones.at(milestone_id).write(milestone);
+    
+    emit MilestoneTimedOut { milestone_id };
+}
+
+/// Helper: Compute milestone deadline from max of task deadlines
+fn compute_milestone_deadline(milestone_id: Field) -> Field {
+    let task_ids = get_milestone_tasks(milestone_id);
+    let mut max_deadline: Field = 0;
+    
+    for task_id in task_ids {
+        let task = storage.tasks.at(task_id).read();
+        if task.deadline > max_deadline {
+            max_deadline = task.deadline;
+        }
+    }
+    
+    max_deadline
+}
+
+/// Helper: Compute milestone stake from sum of task stakes
+fn compute_milestone_stake(milestone_id: Field) -> Field {
+    let task_ids = get_milestone_tasks(milestone_id);
+    let mut total: Field = 0;
+    
+    for task_id in task_ids {
+        let task = storage.tasks.at(task_id).read();
+        total = total + task.stake;
+    }
+    
+    total
 }
 ```
 
@@ -1667,6 +2106,61 @@ Anyone                         Escrow                 Customer Avatar
    │                         [no trust update - no outcome recorded]
 ```
 
+### Flow 4: Milestone Acceptance
+
+```
+Provider(s)              Customer Avatar           Escrow                 Avatar Contract
+      │                       │                      │                        │
+      │  [delivers work       │                      │                        │
+      │   off-chain]          │                      │                        │
+      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│                      │                        │
+      │                       │                      │                        │
+      │                       │ accept_milestone()   │                        │
+      │                       │─────────────────────>│                        │
+      │                       │                      │                        │
+      │                       │                      │ For each task:         │
+      │                       │                      │ - transfer stake       │
+      │                       │                      │ - record_contract_     │
+      │                       │                      │   completion()         │
+      │   [stakes paid]       │                      │───────────────────────>│
+      │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                        │
+      │                       │                      │                        │
+      │                       │                      │ [trust updated for     │
+      │                       │                      │  all task providers    │
+      │                       │                      │  and customer]         │
+```
+
+### Flow 5: Partial Dispute
+
+```
+Provider(s)              Customer Avatar           Escrow                 Arbitrator
+      │                       │                      │                        │
+      │  [delivers work]      │                      │                        │
+      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─>│                      │                        │
+      │                       │                      │                        │
+      │                       │ dispute_tasks(       │                        │
+      │                       │   milestone_id,      │                        │
+      │                       │   [task_B],          │                        │
+      │                       │   evidence_hash)     │                        │
+      │                       │─────────────────────>│                        │
+      │                       │                      │                        │
+      │   [Task A paid]       │                      │ Non-disputed tasks:    │
+      │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│ - transfer stakes      │
+      │                       │                      │ - update trust         │
+      │                       │                      │                        │
+      │                       │                      │ Disputed task B:       │
+      │                       │                      │ - enter arbitration    │
+      │                       │                      │ - stake held           │
+      │                       │                      │                        │
+      │                       │        [arbitrator selection process]         │
+      │                       │                      │                        │
+      │                       │                      │ resolve_dispute()      │
+      │                       │                      │<───────────────────────│
+      │                       │                      │                        │
+      │   [Task B partial]    │   [refund]           │ Split stake per        │
+      │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│ payout_pct             │
+```
+
 ---
 
 ## Privacy Boundaries
@@ -1751,6 +2245,23 @@ Use a ZK eligibility proof. This proves trust ≥ threshold without revealing th
 | `prune_old_contracts` | Not Avatar owner | `UNAUTHORIZED` |
 | `prune_old_contracts` | Contract too recent | `CONTRACT_TOO_RECENT` |
 | `prune_old_contracts` | Contract has non-zero weight | `CONTRACT_STILL_ACTIVE` |
+| `accept_milestone` | Not customer | `UNAUTHORIZED` |
+| `accept_milestone` | Milestone not active | `INVALID_STATE` |
+| `accept_milestone` | Deadline passed | `DEADLINE_PASSED` |
+| `dispute_tasks` | Not customer | `UNAUTHORIZED` |
+| `dispute_tasks` | Milestone not active | `INVALID_STATE` |
+| `dispute_tasks` | Deadline passed | `DEADLINE_PASSED` |
+| `dispute_tasks` | Invalid task ID | `INVALID_TASK` |
+| `timeout_milestone` | Milestone not active | `INVALID_STATE` |
+| `timeout_milestone` | Deadline not passed | `DEADLINE_NOT_REACHED` |
+| `submit_provider_evidence` | Not provider | `UNAUTHORIZED` |
+| `submit_provider_evidence` | Task not disputed | `INVALID_STATE` |
+| `accept_arbitration` | Arbitrator not assigned | `INVALID_STATE` |
+| `accept_arbitration` | Arbitrator ineligible | `INELIGIBLE` |
+| `resolve_dispute` | Not arbitrator | `UNAUTHORIZED` |
+| `resolve_dispute` | Invalid payout percentage | `INVALID_PAYOUT` |
+| `file_appeal` | Not party to dispute | `UNAUTHORIZED` |
+| `file_appeal` | Appeal window passed | `DEADLINE_PASSED` |
 
 ### Gas Considerations
 
@@ -1765,6 +2276,10 @@ Use a ZK eligibility proof. This proves trust ≥ threshold without revealing th
 | `finalize_cancellation` | Low | State finalization + transfers |
 | `prove_eligibility` (ZK) | High | Off-chain proof generation |
 | `prune_old_contracts` | Low | Storage cleanup |
+| `accept_milestone` | High | Multiple task transfers + trust updates |
+| `dispute_tasks` | High | Partial payments + state updates |
+| `timeout_milestone` | High | Multiple task transfers + trust updates |
+| `resolve_dispute` | Medium | Stake distribution + trust update |
 
 ---
 
@@ -1779,6 +2294,8 @@ Use a ZK eligibility proof. This proves trust ≥ threshold without revealing th
 | **Blockchain_Selection_for_Quantum_of_Trust_Implementation.md** | Why Aztec/Noir |
 | **Sybil_Resistance_Architecture.md** | Defense mechanism design |
 | **ADR_Subcontract_Architecture.md** | Hierarchical contract pattern |
+| **ADR_Milestone_Payment_Gates.md** | Milestone lifecycle and payment flow |
+| **ADR_Dispute_Resolution.md** | Arbitration contracts and task-level disputes |
 
 ---
 
@@ -1809,6 +2326,11 @@ struct Storage {
     escrow_entries: Map<Field, PublicState<EscrowEntry>>,
     cancel_requests: Map<Field, PublicState<CancelRequest>>,
     
+    // Milestones and Tasks
+    milestones: Map<Field, PublicState<Milestone>>,
+    tasks: Map<Field, PublicState<Task>>,
+    milestone_tasks: Map<Field, Vec<Field>>,  // milestone_id -> [task_ids]
+    
     // Avatar
     avatar_states: Map<AztecAddress, PublicState<AvatarState>>,
     contract_histories: Map<AztecAddress, Vec<ContractHistoryEntry>>,
@@ -1837,6 +2359,22 @@ event OutcomeRecorded { contract_id: Field, outcome: Field }
 event ContractTimedOut { contract_id: Field }
 event CancellationInitiated { contract_id: Field, initiator: AztecAddress }
 event ContractCancelled { contract_id: Field, mutual: bool }
+
+// Milestone events
+event MilestoneCreated { milestone_id: Field, phase_id: Field, task_count: Field }
+event MilestoneAccepted { milestone_id: Field }
+event MilestoneTimedOut { milestone_id: Field }
+event TasksDisputed { milestone_id: Field, task_ids: [Field], num_disputed: Field, evidence_hash: Field }
+
+// Dispute events
+event ProviderEvidenceSubmitted { task_id: Field, evidence_hash: Field }
+event ArbitratorProposed { task_id: Field, proposer: AztecAddress, arbitrator: AztecAddress }
+event ArbitratorAccepted { task_id: Field, arbitrator: AztecAddress, fee: Field }
+event Tier1Resolved { task_id: Field, payout_pct: Field, provider_payout: Field, customer_refund: Field }
+event AppealFiled { task_id: Field, appellant: AztecAddress }
+event PanelAccepted { task_id: Field, tier2_fee: Field }
+event Tier2Resolved { task_id: Field, payout_pct: Field, votes: [Field; 3], tier2_fee: Field, provider_payout: Field, customer_refund: Field }
+event Tier1Finalized { task_id: Field, payout_pct: Field, outcome: Field }
 
 // Avatar events
 event TrustUpdated { avatar: AztecAddress, skill_type: Field, contribution: Field }

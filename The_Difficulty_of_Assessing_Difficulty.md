@@ -37,6 +37,7 @@ Since tasks are already defined as sub-subcontracts in the QoT framework, the ma
 |-------|--------------|----------|-------------|
 | Contract | Customer (non-expert) | Poor | Coarse—misses variation |
 | Phase | Mixed | Medium | Better, but still abstract |
+| Milestone | Aggregated from tasks | Medium-High | Payment gate level |
 | **Task** | Provider (expert) | **High** | **Concrete, specific, verifiable** |
 
 Tasks are concrete:
@@ -44,13 +45,19 @@ Tasks are concrete:
 - "Build authentication system" is vague
 - "Build the app" is impossible to estimate accurately
 
+Milestones group related tasks for incremental payment without adding estimation complexity—milestone difficulty simply aggregates from its tasks.
+
 ### The Aggregation Pattern
 
-Contract difficulty emerges from task difficulties using weighted average by stake:
+Difficulty aggregates upward through the hierarchy using weighted average by stake:
 
-$$d_{phase} = \frac{\sum_{i} d_{task_i} \cdot s_{task_i}}{\sum_{i} s_{task_i}}$$
+$$d_{milestone} = \frac{\sum_{i} d_{task_i} \cdot s_{task_i}}{\sum_{i} s_{task_i}}$$
+
+$$d_{phase} = \frac{\sum_{j} d_{milestone_j} \cdot s_{milestone_j}}{\sum_{j} s_{milestone_j}}$$
 
 This means high-stake tasks contribute more to the overall difficulty rating than low-stake tasks. The pattern matches the existing stake allocation formula, maintaining mathematical consistency across the framework.
+
+**Note**: Milestone stake is computed from sum of task stakes; it's not set independently. Milestone deadline is computed from max of task deadlines.
 
 ---
 
@@ -63,12 +70,15 @@ QoT uses a recursive contract structure (see ADR: Subcontract Architecture):
 ```
 Project
 └── Phase (Subcontract) ← Full contract, linked to project
-    └── Task (Sub-Subcontract) ← Full contract, linked to phase
+    └── Milestone (Payment Gate) ← Batches related tasks for incremental payment
+        └── Task (Sub-Subcontract) ← Atomic work unit, linked to milestone
 ```
 
-Each level is a **full contract in its own right**. The trust equation applies identically at every level:
+Each level is a **full contract in its own right**. Tasks contribute to trust; milestones coordinate payment. The trust equation applies at the task level:
 
 $$V_t = \sum_{c \in h_t} \omega(c) \cdot \text{outcome}(c) \cdot \gamma(c) \cdot \nu(c)$$
+
+Customer reviews at **milestone deadline** (not per-task): accept all tasks, dispute specific tasks, or timeout. See **ADR_Milestone_Payment_Gates.md** for payment flow.
 
 ### The Key Moment: Provider Acceptance
 
@@ -122,45 +132,75 @@ The provider is the **domain expert** for implementation. But the task breakdown
 Specification Phase (Customer's responsibility)
     ↓
 Planning Phase (Customer's responsibility)
-    → Produces task breakdown
+    → Produces task breakdown AND milestone groupings
+    → Task deadlines = work duration allocations
+    → Milestone deadline = max(task deadlines in milestone)
     ↓
 Implementation Phase (Provider executes)
     → Provider reviews existing tasks at acceptance
+    → Provider may request task refinement before committing
+    → Payment releases at milestone completion, not per-task
 ```
 
-By the time an Implementation provider considers acceptance, **tasks should already exist** from the Planning phase.
+By the time an Implementation provider considers acceptance, **tasks and milestones should already exist** from the Planning phase.
 
 ### Provider Reviews and Validates Task Breakdown
 
-At acceptance, the provider reviews the planned tasks and assesses difficulty:
+At acceptance, the provider reviews the planned tasks (grouped into milestones) and assesses difficulty:
 
 ```
 Customer's Task Breakdown (from Planning phase):
-┌────────────────────────────────────────────────────────┐
-│ Task (Sub-Subcontract)        │ Stake %  │ Difficulty │
-├────────────────────────────────────────────────────────┤
-│ T1: Database schema design    │   10%    │     ?      │
-│ T2: Password hashing impl     │   15%    │     ?      │
-│ T3: Session management        │   20%    │     ?      │
-│ T4: OAuth2 integration        │   25%    │     ?      │
-│ T5: Rate limiting             │   15%    │     ?      │
-│ T6: Security audit            │   15%    │     ?      │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ MILESTONE 1: Authentication Core                                 │
+├──────────────────────────────────────────────────────────────────┤
+│ Task (Sub-Subcontract)        │ Stake %  │ Difficulty │ Deadline │
+├────────────────────────────────────────────────────────────────┤
+│ T1: Database schema design    │   10%    │     ?      │  Week 1  │
+│ T2: Password hashing impl     │   15%    │     ?      │  Week 2  │
+│ T3: Session management        │   20%    │     ?      │  Week 3  │
+├──────────────────────────────────────────────────────────────────┤
+│ Milestone 1 deadline = max(task deadlines) = Week 3              │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ MILESTONE 2: Third-Party Integration                             │
+├──────────────────────────────────────────────────────────────────┤
+│ Task (Sub-Subcontract)        │ Stake %  │ Difficulty │ Deadline │
+├────────────────────────────────────────────────────────────────┤
+│ T4: OAuth2 integration        │   25%    │     ?      │  Week 5  │
+│ T5: Rate limiting             │   15%    │     ?      │  Week 4  │
+│ T6: Security audit            │   15%    │     ?      │  Week 6  │
+├──────────────────────────────────────────────────────────────────┤
+│ Milestone 2 deadline = max(task deadlines) = Week 6              │
+└──────────────────────────────────────────────────────────────────┘
 
 Provider assesses difficulty for each task:
-┌────────────────────────────────────────────────────────┐
-│ Task (Sub-Subcontract)        │ Stake %  │ Difficulty │
-├────────────────────────────────────────────────────────┤
-│ T1: Database schema design    │   10%    │     3      │
-│ T2: Password hashing impl     │   15%    │     4      │
-│ T3: Session management        │   20%    │     5      │
-│ T4: OAuth2 integration        │   25%    │     7      │
-│ T5: Rate limiting             │   15%    │     4      │
-│ T6: Security audit            │   15%    │     6      │
-├────────────────────────────────────────────────────────┤
-│ PHASE DIFFICULTY (aggregate)  │  100%    │    5.05    │
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ MILESTONE 1: Authentication Core                                 │
+├──────────────────────────────────────────────────────────────────┤
+│ T1: Database schema design    │   10%    │     3      │  Week 1  │
+│ T2: Password hashing impl     │   15%    │     4      │  Week 2  │
+│ T3: Session management        │   20%    │     5      │  Week 3  │
+├──────────────────────────────────────────────────────────────────┤
+│ Milestone 1 aggregate difficulty: 4.22                           │
+│ Milestone 1 stake: 45% of phase                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────┐
+│ MILESTONE 2: Third-Party Integration                             │
+├──────────────────────────────────────────────────────────────────┤
+│ T4: OAuth2 integration        │   25%    │     7      │  Week 5  │
+│ T5: Rate limiting             │   15%    │     4      │  Week 4  │
+│ T6: Security audit            │   15%    │     6      │  Week 6  │
+├──────────────────────────────────────────────────────────────────┤
+│ Milestone 2 aggregate difficulty: 5.82                           │
+│ Milestone 2 stake: 55% of phase                                  │
+├──────────────────────────────────────────────────────────────────┤
+│ PHASE DIFFICULTY (aggregate)  │  100%    │    5.10    │          │
+└──────────────────────────────────────────────────────────────────┘
 ```
+
+**Note**: Task deadlines are **work duration allocations** (planning data). They do not trigger payment—customer review happens at **milestone deadline**. Payment releases incrementally as milestones complete.
 
 ### Provider Can Request Task Refinement
 
@@ -327,11 +367,13 @@ Unchanged. Uses whatever `d` is assigned to the contract.
 
 ### Aggregation Pattern (Follows Existing Stake Allocation)
 
-Difficulty aggregates from tasks to phases using the same pattern as stake allocation:
+Difficulty aggregates from tasks to milestones to phases using the same pattern as stake allocation:
 
-$$d_{phase} = \frac{\sum_{i} d_{task_i} \cdot s_{task_i}}{\sum_{i} s_{task_i}}$$
+$$d_{milestone} = \frac{\sum_{i} d_{task_i} \cdot s_{task_i}}{\sum_{i} s_{task_i}}$$
 
-This is not a new formula—it applies the existing weighted-average pattern to difficulty.
+$$d_{phase} = \frac{\sum_{j} d_{milestone_j} \cdot s_{milestone_j}}{\sum_{j} s_{milestone_j}}$$
+
+This is not a new formula—it applies the existing weighted-average pattern to difficulty at each level of the hierarchy.
 
 ---
 
@@ -426,9 +468,9 @@ Discovered complexity makes original estimates wrong.
 
 ### Team-Based Implementation
 
-Multiple providers work on different tasks within a phase.
+Multiple providers work on different tasks within a milestone or across milestones.
 
-**Solution**: Already handled by the subcontract architecture. Each task is a sub-subcontract with its own provider. Each provider proposes difficulty for their assigned tasks. Phase difficulty = weighted average across all tasks regardless of provider.
+**Solution**: Already handled by the subcontract architecture. Each task is a sub-subcontract with its own provider. Each provider proposes difficulty for their assigned tasks. Milestone difficulty = weighted average across all tasks in that milestone. Phase difficulty = weighted average across all milestones. Payment releases per-milestone, not per-task—see **ADR_Milestone_Payment_Gates.md**.
 
 ### AI Agents as Providers
 
@@ -449,11 +491,13 @@ AI may actually be *more* consistent than human estimators—and their calibrati
 
 1. **Difficulty is assessed at the task level** by the provider (domain expert)
 2. **Tasks are sub-subcontracts** defined in the Planning phase (customer's responsibility)
-3. **Phase/contract difficulty aggregates** from task difficulties (stake-weighted average)
-4. **Negotiation occurs at acceptance**—provider reviews tasks and assesses difficulty
-5. **Provider can request task refinement** before committing
-6. **Customer validates** but doesn't estimate—they lack the expertise
-7. **Outcomes correct** systematic over/under-estimation through trust consequences
+3. **Tasks are grouped into milestones** as payment gates with incremental review
+4. **Milestone/phase/contract difficulty aggregates** from task difficulties (stake-weighted average)
+5. **Negotiation occurs at acceptance**—provider reviews tasks and assesses difficulty
+6. **Provider can request task refinement** before committing
+7. **Customer validates** but doesn't estimate—they lack the expertise
+8. **Outcomes correct** systematic over/under-estimation through trust consequences
+9. **Task deadlines are work duration allocations**—customer review happens at milestone deadline
 
 ### Why This Works
 
@@ -466,6 +510,7 @@ AI may actually be *more* consistent than human estimators—and their calibrati
 | AI compatibility | Agents can estimate same as humans |
 | Mathematical consistency | Aggregation follows existing stake allocation patterns |
 | Backward compatibility | Standalone contracts work unchanged (ADR) |
+| Incremental payment | Milestones release payment as work progresses |
 
 ### The Key Insight
 

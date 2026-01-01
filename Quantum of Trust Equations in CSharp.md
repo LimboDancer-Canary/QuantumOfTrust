@@ -145,6 +145,7 @@ namespace QuantumOfTrust
 
     /// <summary>
     /// Contract type identifiers for hierarchical contract decomposition.
+    /// Hierarchy: Project → Phases → Milestones → Tasks
     /// </summary>
     public enum ContractType
     {
@@ -156,8 +157,10 @@ namespace QuantumOfTrust
         Planning = 2,
         /// <summary>Implementation phase of a project.</summary>
         Implementation = 3,
-        /// <summary>Task within a phase (sub-subcontract).</summary>
-        Task = 4
+        /// <summary>Task within a milestone (atomic work unit).</summary>
+        Task = 4,
+        /// <summary>Milestone within implementation phase (payment gate).</summary>
+        Milestone = 5
     }
 
     /// <summary>
@@ -933,7 +936,10 @@ public class Contract
             errors.Add("TaskWeight cannot be negative");
 
         if (Type == ContractType.Task && !ParentRef.HasValue)
-            errors.Add("Task contracts must have a ParentRef");
+            errors.Add("Task contracts must have a ParentRef pointing to parent milestone");
+
+        if (Type == ContractType.Milestone && !ParentRef.HasValue)
+            errors.Add("Milestone contracts must have a ParentRef pointing to parent implementation phase");
 
         return errors;
     }
@@ -1115,9 +1121,12 @@ public class ContractBuilder
 }
 
 /// <summary>
-/// Represents a task within a phase contract.
-/// Tasks are sub-subcontracts that enable granular tracking and
+/// Represents a task within a milestone.
+/// Tasks are atomic work units that enable granular tracking and
 /// team-based implementation where different providers handle different tasks.
+/// 
+/// Hierarchy: Project → Phase → Milestone → Task
+/// Trust flows through tasks. Milestones are coordination containers (payment gates).
 /// </summary>
 public class Task
 {
@@ -1127,12 +1136,12 @@ public class Task
     /// <summary>
     /// The provider assigned to this task.
     /// Enables team-based implementation where different avatars
-    /// handle different tasks within the same phase.
+    /// handle different tasks within the same milestone.
     /// </summary>
     public Agent? Provider { get; init; }
 
-    /// <summary>Reference to the parent phase contract.</summary>
-    public Guid ParentPhaseId { get; init; }
+    /// <summary>Reference to the parent milestone (payment gate).</summary>
+    public Guid ParentMilestoneId { get; init; }
 
     /// <summary>Task weight for proportional stake allocation.</summary>
     public double Weight { get; init; } = 1.0;
@@ -1140,7 +1149,7 @@ public class Task
     /// <summary>
     /// Difficulty rating for this task (0-10).
     /// Assessed by the provider at contract acceptance.
-    /// Phase difficulty aggregates from task difficulties via stake-weighted average.
+    /// Milestone difficulty aggregates from task difficulties via stake-weighted average.
     /// </summary>
     public double Difficulty { get; init; } = 5.0;
 
@@ -1154,29 +1163,135 @@ public class Task
     public DateTime? CompletedAt { get; init; }
 
     /// <summary>
-    /// Computes this task's stake allocation within the phase.
-    /// task_stake = phase_stake × (task_weight / total_task_weight)
+    /// Work duration deadline (planning data, not payment trigger).
+    /// Customer review happens at parent milestone deadline.
     /// </summary>
-    public double ComputeStake(double phaseStake, double totalTaskWeight)
+    public DateTime? Deadline { get; init; }
+
+    /// <summary>
+    /// Computes this task's stake allocation within the milestone.
+    /// task_stake = milestone_stake × (task_weight / total_task_weight)
+    /// </summary>
+    public double ComputeStake(double milestoneStake, double totalTaskWeight)
     {
         if (totalTaskWeight <= 0) return 0;
-        return phaseStake * (Weight / totalTaskWeight);
+        return milestoneStake * (Weight / totalTaskWeight);
     }
 }
 
 /// <summary>
-/// Represents a phase with its associated tasks for team-based implementation.
+/// Represents a milestone with its associated tasks for team-based implementation.
+/// Milestones are payment gates within the Implementation phase.
+/// 
+/// Hierarchy: Project → Phase → Milestone → Task
+/// Trust flows through tasks. Milestones coordinate payment.
+/// 
+/// Customer reviews at milestone deadline:
+/// - Accept all tasks → payment released
+/// - Dispute specific tasks → disputed tasks enter arbitration, non-disputed paid
+/// - Timeout → all tasks paid (customer forfeited review)
+/// 
+/// See: ADR_Milestone_Payment_Gates.md, ADR_Dispute_Resolution.md
+/// </summary>
+public class MilestoneWithTasks
+{
+    /// <summary>Unique identifier for this milestone.</summary>
+    public Guid Id { get; init; } = Guid.NewGuid();
+
+    /// <summary>Reference to the parent implementation phase.</summary>
+    public Guid ParentPhaseId { get; init; }
+
+    /// <summary>Tasks within this milestone.</summary>
+    public IReadOnlyList<Task> Tasks { get; init; } = Array.Empty<Task>();
+
+    /// <summary>Total weight of all tasks in this milestone.</summary>
+    public double TotalTaskWeight => Tasks.Sum(t => t.Weight);
+
+    /// <summary>
+    /// Computes milestone stake from sum of task stakes.
+    /// Milestone stake is not stored—it's computed from child tasks.
+    /// </summary>
+    public double ComputeStake(double phaseStake, double totalPhaseTaskWeight)
+    {
+        if (totalPhaseTaskWeight <= 0) return 0;
+        return Tasks.Sum(t => t.ComputeStake(phaseStake, totalPhaseTaskWeight));
+    }
+
+    /// <summary>
+    /// Computes milestone deadline from max of task deadlines.
+    /// Milestone deadline is not stored—it's computed from child tasks.
+    /// </summary>
+    public DateTime? ComputeDeadline()
+    {
+        var deadlines = Tasks.Where(t => t.Deadline.HasValue).Select(t => t.Deadline!.Value);
+        return deadlines.Any() ? deadlines.Max() : null;
+    }
+
+    /// <summary>
+    /// Aggregates task contributions for a specific provider within this milestone.
+    /// Enables team members to prove their individual contribution.
+    /// </summary>
+    public double AggregateProviderContribution(Agent provider, double milestoneWeight)
+    {
+        if (provider == null || TotalTaskWeight <= 0) return 0;
+
+        double milestoneStake = Tasks.Sum(t => t.Weight); // Use weight as proxy for stake proportion
+
+        return Tasks
+            .Where(t => t.Provider?.Id == provider.Id)
+            .Sum(t =>
+            {
+                double stakeRatio = milestoneStake > 0 
+                    ? t.Weight / milestoneStake 
+                    : 0;
+                return milestoneWeight * stakeRatio * t.Outcome;
+            });
+    }
+
+    /// <summary>
+    /// Computes the aggregate milestone difficulty from task difficulties.
+    /// Milestone difficulty = stake-weighted average of task difficulties.
+    /// </summary>
+    public double ComputeAggregateDifficulty()
+    {
+        if (TotalTaskWeight <= 0) return 0;
+
+        double weightedSum = Tasks.Sum(t => t.Difficulty * t.Weight);
+        return weightedSum / TotalTaskWeight;
+    }
+}
+
+/// <summary>
+/// Represents a phase with its associated milestones and tasks for team-based implementation.
+/// 
+/// Hierarchy: Project → Phase → Milestone → Task
+/// 
+/// For Implementation phases, tasks are grouped into milestones (payment gates).
+/// For backward compatibility, this class can also work with tasks directly
+/// when milestones are not used (legacy mode).
 /// </summary>
 public class PhaseWithTasks
 {
     /// <summary>The phase contract.</summary>
     public Contract PhaseContract { get; init; } = null!;
 
-    /// <summary>Tasks within this phase.</summary>
+    /// <summary>
+    /// Milestones within this phase (for Implementation phases).
+    /// Each milestone contains tasks and serves as a payment gate.
+    /// </summary>
+    public IReadOnlyList<MilestoneWithTasks> Milestones { get; init; } = Array.Empty<MilestoneWithTasks>();
+
+    /// <summary>
+    /// Tasks within this phase (legacy mode, or for non-Implementation phases).
+    /// For Implementation phases, use Milestones instead.
+    /// </summary>
     public IReadOnlyList<Task> Tasks { get; init; } = Array.Empty<Task>();
 
-    /// <summary>Total weight of all tasks.</summary>
-    public double TotalTaskWeight => Tasks.Sum(t => t.Weight);
+    /// <summary>Total weight of all tasks (across all milestones or direct tasks).</summary>
+    public double TotalTaskWeight => 
+        Milestones.Any() 
+            ? Milestones.Sum(m => m.TotalTaskWeight)
+            : Tasks.Sum(t => t.Weight);
 
     /// <summary>
     /// Aggregates task contributions for a specific provider.
@@ -1186,6 +1301,13 @@ public class PhaseWithTasks
     {
         if (provider == null || TotalTaskWeight <= 0) return 0;
 
+        // If using milestones, aggregate across all milestones
+        if (Milestones.Any())
+        {
+            return Milestones.Sum(m => m.AggregateProviderContribution(provider, PhaseContract.Weight));
+        }
+
+        // Legacy mode: direct tasks
         return Tasks
             .Where(t => t.Provider?.Id == provider.Id)
             .Sum(t =>
@@ -1206,7 +1328,11 @@ public class PhaseWithTasks
     {
         if (TotalTaskWeight <= 0) return 0;
 
-        double weightedSum = Tasks.Sum(t => t.Weight * t.Outcome);
+        var allTasks = Milestones.Any() 
+            ? Milestones.SelectMany(m => m.Tasks)
+            : Tasks;
+
+        double weightedSum = allTasks.Sum(t => t.Weight * t.Outcome);
         return weightedSum / TotalTaskWeight;
     }
 
@@ -1226,10 +1352,14 @@ public class PhaseWithTasks
     {
         if (TotalTaskWeight <= 0) return 0;
 
-        double totalStake = Tasks.Sum(t => t.ComputeStake(PhaseContract.Stake, TotalTaskWeight));
+        var allTasks = Milestones.Any() 
+            ? Milestones.SelectMany(m => m.Tasks)
+            : Tasks;
+
+        double totalStake = allTasks.Sum(t => t.ComputeStake(PhaseContract.Stake, TotalTaskWeight));
         if (totalStake <= 0) return 0;
 
-        double weightedSum = Tasks.Sum(t => 
+        double weightedSum = allTasks.Sum(t => 
             t.Difficulty * t.ComputeStake(PhaseContract.Stake, TotalTaskWeight));
         return weightedSum / totalStake;
     }
@@ -2925,7 +3055,13 @@ namespace QuantumOfTrust
 | $\text{Corr}(V_t^{(n)}, R_t)$ | `NetworkValidator.CalculateConvergence()` with documented edge cases |
 | $\|h_t(a_{\text{honest}})\| > \|h_t(a_{\text{sybil}_i})\|$ | `SybilResistanceAnalyzer` with correct advantage ratio for negative values |
 | $\text{verification\_weight}(c)$ | `VerificationWeightCalculator.ComputeVerificationWeight()` |
-| $s_{\text{task}} = s_{\text{phase}} \cdot \frac{w}{\sum w}$ | `TaskDecomposition.ComputeTaskStake()` |
+| **Hierarchical Contracts** | |
+| $\text{ContractType} \in \{0..5\}$ | `ContractType` enum (Standalone=0 through Milestone=5) |
+| $\text{Milestone}(\{T_i\})$ | `MilestoneWithTasks` class with `Tasks`, `ComputeStake()`, `ComputeDeadline()` |
+| $d_{\text{milestone}} = \max_i(d_{\text{task}_i})$ | `MilestoneWithTasks.ComputeDeadline()` |
+| $s_{\text{milestone}} = \sum_i s_{\text{task}_i}$ | `MilestoneWithTasks.ComputeStake()` |
+| **Task Decomposition** | |
+| $s_{\text{task}} = s_{\text{milestone}} \cdot \frac{w}{\sum w}$ | `Task.ComputeStake()` |
 | $d_{\text{phase}} = \frac{\sum d_{\text{task}} \cdot s_{\text{task}}}{\sum s_{\text{task}}}$ | `PhaseWithTasks.ComputeAggregateDifficulty()` |
 | $\text{planning\_accuracy}$ | `TaskDecomposition.ComputePlanningAccuracy()` or `Contract.PlanningAccuracy` |
 | Customer skill types | `CustomerSkillTypes` constants + `CustomerProfile` class |
@@ -2946,13 +3082,19 @@ namespace QuantumOfTrust
 - ✅ Rating variance used to detect rubber-stamping or erratic behavior
 
 ### Task Decomposition
-- ✅ `Task` class for sub-subcontracts within phases
+- ✅ `Task` class for atomic work units within milestones
 - ✅ `Task.Difficulty` property for provider-assessed task difficulty
-- ✅ `PhaseWithTasks` enables team-based implementation
+- ✅ `Task.Deadline` property for work duration (planning data, not payment trigger)
+- ✅ `Task.ParentMilestoneId` reference to parent milestone
+- ✅ `MilestoneWithTasks` class for payment gates within Implementation phases
+- ✅ `MilestoneWithTasks.ComputeDeadline()` from max of task deadlines
+- ✅ `MilestoneWithTasks.ComputeStake()` from sum of task stakes
+- ✅ `PhaseWithTasks` enables team-based implementation with milestones
 - ✅ `PhaseWithTasks.ComputeAggregateDifficulty()` for stake-weighted difficulty aggregation
 - ✅ `TaskDecomposition` utilities for stake allocation
-- ✅ `ContractType` enum for hierarchical classification
+- ✅ `ContractType` enum for hierarchical classification (0-5, including Milestone=5)
 - ✅ `Contract` extended with hierarchical fields (Type, ParentRef, TaskWeight, etc.)
+- ✅ Trust flows through tasks, milestones are coordination containers
 
 ---
 
@@ -3005,11 +3147,21 @@ This document incorporates all fixes from four code review passes:
 
 ### Pass 4 Additions (Bidirectional Trust & Task Decomposition)
 - ✅ `CustomerSkillTypes` constants for customer behavior dimensions
-- ✅ `ContractType` enum for hierarchical contract classification
+- ✅ `ContractType` enum for hierarchical contract classification (Standalone=0 through Milestone=5)
 - ✅ `Contract` extended with Type, ParentRef, TaskWeight, planning fields
-- ✅ `Task` class for sub-subcontracts with provider assignment
-- ✅ `PhaseWithTasks` for team-based implementation
+- ✅ `Task` class for atomic work units with provider assignment and deadline
+- ✅ `MilestoneWithTasks` class for payment gates within Implementation phases
+- ✅ `PhaseWithTasks` for team-based implementation with milestone support
 - ✅ `CustomerProfile` class for customer behavior metrics
 - ✅ `CustomerTrustCalculator` with 6 skill-specific computation methods
 - ✅ `VerificationWeightCalculator` for rating credibility adjustment
 - ✅ `TaskDecomposition` utilities for stake allocation and aggregation
+
+### Pass 5 Additions (Milestone Payment Gates)
+- ✅ `ContractType.Milestone = 5` for payment gate classification
+- ✅ `MilestoneWithTasks` class with computed deadline and stake
+- ✅ `Task.ParentMilestoneId` reference to parent milestone
+- ✅ `Task.Deadline` for work duration (planning data)
+- ✅ 4-level hierarchy: Project → Phase → Milestone → Task
+- ✅ Trust flows through tasks, milestones coordinate payment
+- ✅ See: ADR_Milestone_Payment_Gates.md, ADR_Dispute_Resolution.md

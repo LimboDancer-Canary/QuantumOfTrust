@@ -14,6 +14,7 @@ The framework enables:
 
 - **Privacy-preserving reputation** — Build trust through verified action, not identity disclosure
 - **AI agent accountability** — Same trust primitives for humans and AI-operated avatars
+- **Bidirectional trust** — Both providers and customers earn reputation through contracts
 - **Composable trust networks** — DAOs as recursive trust structures
 - **Cryptographic verification** — Zero-knowledge proofs for eligibility without revealing history
 
@@ -54,14 +55,13 @@ An Avatar proves they meet a threshold *without revealing their history, counter
 
 ## Repository Contents
 
-| Document | Description |
-|----------|-------------|
-| [**QuantumOfTrust_v10.md**](./QuantumOfTrust_v10.md) | The complete framework whitepaper. Covers the problem, the Avatar-first architecture, mathematical formalization, composable trust, and the human-AI bridge. |
-| [**The_Quantum_of_Trust_Math_Equations_in_Plain_English.md**](./The_Quantum_of_Trust_Math_Equations_in_Plain_English.md) | Every equation explained in plain English with examples. |
-| [**Quantum_of_Trust_Equations_in_Noir.md**](./Quantum_of_Trust_Equations_in_Noir.md) | Full implementation in Noir (Aztec's ZK circuit language). Covers signed arithmetic, eligibility proofs, DAO aggregation, and Sybil resistance. |
-| [**Quantum_of_Trust_Equations_in_CSharp.md**](./Quantum_of_Trust_Equations_in_CSharp.md) | C# implementation for traditional systems. |
-| [**Sybil_Resistance_Architecture.md**](./Sybil_Resistance_Architecture.md) | Detailed design rationale for defense-in-depth against Sybil attacks. |
-| [**Blockchain_Selection_for_Quantum_of_Trust_Implementation.md**](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md) | Technical rationale for choosing Noir on Aztec. |
+The repository contains comprehensive documentation across conceptual, architectural, and implementation layers. See [**README.md**](./README.md) for the complete document index organized by category:
+
+- **Conceptual Framework** — Whitepaper, math explanations, Sybil resistance design
+- **Architecture Decisions** — ADRs for subcontracts, milestones, disputes, trust boundaries
+- **Specifications** — Aztec contract layer, Nostria client, ZK relay integration
+- **Nostr Integration** — Protocol analysis, gap analysis, implementation plans
+- **Implementation** — Noir circuits, C# implementation, comprehensive test suites
 
 ## Key Concepts
 
@@ -86,6 +86,35 @@ Jane's Avatars:
 
 Success in one domain doesn't inflate standing in another. Failure in one doesn't contaminate success in another.
 
+### Contract Hierarchy
+
+Complex work decomposes into a four-level hierarchy:
+
+```
+Project
+└── Phase (Specification → Planning → Implementation)
+    └── Milestone (payment gate, customer review point)
+        └── Task (atomic work unit, trust flows here)
+```
+
+- **Projects** coordinate multi-phase work
+- **Phases** separate concern areas (spec, planning, implementation)
+- **Milestones** gate incremental payment—customers review at milestone deadlines
+- **Tasks** are where trust actually flows—each has a provider, difficulty, and outcome
+
+Trust flows through tasks, not milestones. Milestones are coordination containers for payment.
+
+### Bidirectional Trust
+
+Both providers and customers earn trust through contracts:
+
+| Role | Earns Trust For |
+|------|-----------------|
+| Provider | Delivering quality work on time |
+| Customer | Commitment rate, funding reliability, verification integrity, scope stability |
+
+Customers with poor track records become visible to providers before acceptance.
+
 ### Zero-Knowledge Eligibility
 
 The core cryptographic primitive proves statements about trust without revealing underlying data:
@@ -105,20 +134,44 @@ $$V_t(\text{DAO}(S)) = \Phi\left(\{V_t(q) : q \in S\}\right)$$
 
 Where Φ is a configurable aggregation function (sum, average, minimum, maximum).
 
-## Implementation Status
+## Research Status
 
-The Noir implementation provides production-ready circuits for:
+All code in this repository is preliminary research—specifications and reference implementations for validation, not production systems.
 
-- ✅ Signed arithmetic in finite fields
-- ✅ Fixed-point arithmetic for weighted calculations
-- ✅ Trust value computation from private history
-- ✅ Eligibility threshold proofs
-- ✅ DAO aggregation functions
-- ✅ Sybil resistance checks (history size, depth, counterparty diversity)
-- ✅ Contract validation to prevent proof forgery
-- ✅ Comprehensive test suite
+### Core Circuits (Noir)
 
-## Sybil Resistance (Active Development)
+Specification covers:
+- Signed arithmetic in finite fields
+- Fixed-point arithmetic for weighted calculations
+- Trust value computation from private history
+- Eligibility threshold proofs
+- DAO aggregation functions
+- Sybil resistance checks (counterparty diversity, velocity, variance)
+- Contract validation to prevent proof forgery
+- Hierarchical contract types (Project, Phase, Milestone, Task)
+
+### Smart Contracts (Aztec)
+
+Specification covers:
+- QoTRegistry — Project/phase/listing coordination
+- QoTEscrow — Stake management, milestone payment gates
+- QoTAvatar — Trust state, eligibility verification
+
+### Test Suites
+
+Reference test cases documented:
+- 159 C# unit tests across trust computation, Sybil resistance, eligibility
+- 50 Noir circuit tests covering contract validation, milestones, hierarchies
+- Additional Noir test suites for skill independence, edge cases, history evolution
+
+### Client Integration
+
+Specifications complete:
+- Nostria client architecture
+- Angular component templates
+- Nostr event schemas
+
+## Sybil Resistance
 
 The framework implements defense-in-depth against Sybil attacks through four complementary mechanisms:
 
@@ -127,7 +180,7 @@ The framework implements defense-in-depth against Sybil attacks through four com
 - **Outcome variance requirements** — Suspiciously uniform histories are flagged as implausible
 - **Temporal velocity limits** — Trust accumulation is rate-limited to prevent burst attacks
 
-These mechanisms compose to make Sybil attacks economically irrational while preserving accessibility for legitimate newcomers. Parameter tuning and additional hardening are ongoing.
+These mechanisms compose to make Sybil attacks economically irrational while preserving accessibility for legitimate newcomers.
 
 **Mathematical formulation:**
 
@@ -151,6 +204,7 @@ q\<T\> requires privacy as the default execution model, not an optional layer. A
 - **Client-side proving** — Users generate proofs locally; sequencers never see private data
 - **Hybrid state model** — Private for histories, public for contract listings
 - **Recursive proofs** — DAO trust aggregation without revealing member values
+- **ZK-verified computation** — All state transitions proven correct on-chain
 
 See [Blockchain_Selection_for_Quantum_of_Trust_Implementation.md](./Blockchain_Selection_for_Quantum_of_Trust_Implementation.md) for the full platform evaluation.
 
@@ -181,11 +235,20 @@ See [Blockchain_Selection_for_Quantum_of_Trust_Implementation.md](./Blockchain_S
 
 ### Reading Order
 
-1. Start with **QuantumOfTrust_v10.md** for the conceptual framework
-2. Review **The_Quantum_of_Trust_Math_Equations_in_Plain_English.md** for accessible explanations
-3. Study **Sybil_Resistance_Architecture.md** for security mechanisms
-4. Review **Blockchain_Selection_for_Quantum_of_Trust_Implementation.md** for platform rationale
-5. Study **Quantum_of_Trust_Equations_in_Noir.md** for implementation details
+**Conceptual:**
+1. [**QuantumOfTrust_v10.md**](./QuantumOfTrust_v10.md) — Complete framework whitepaper
+2. [**The_Difficulty_of_Assessing_Difficulty.md**](./The_Difficulty_of_Assessing_Difficulty.md) — How difficulty works at task level
+3. [**Sybil_Resistance_Architecture.md**](./Sybil_Resistance_Architecture.md) — Security mechanisms
+
+**Architecture:**
+4. [**ADR_Subcontract_Architecture.md**](./ADR_Subcontract_Architecture.md) — Contract decomposition
+5. [**ADR_Milestone_Payment_Gates.md**](./ADR_Milestone_Payment_Gates.md) — Payment model
+6. [**ADR_Dispute_Resolution.md**](./ADR_Dispute_Resolution.md) — Dispute handling
+
+**Implementation:**
+7. [**QoT_Aztec_Contract_Layer_Specification.md**](./QoT_Aztec_Contract_Layer_Specification.md) — Smart contracts
+8. [**Quantum_of_Trust_Equations_in_Noir.md**](./Quantum_of_Trust_Equations_in_Noir.md) — ZK circuits
+9. [**QoT_Nostria_Client_Specification.md**](./QoT_Nostria_Client_Specification.md) — Client architecture
 
 ### For Developers
 
@@ -221,7 +284,7 @@ Please open an issue to discuss proposed changes before submitting pull requests
 
 ## License
 
-[To be determined — suggest MIT or Apache 2.0 for maximum adoption]
+MIT
 
 ## Acknowledgments
 

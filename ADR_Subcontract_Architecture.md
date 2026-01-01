@@ -1,7 +1,7 @@
 # ADR: Subcontract Architecture for Multi-Phase Contracts
 
 **Status:** Accepted  
-**Date:** December 30, 2025  
+**Date:** January 1, 2026 (Updated)  
 **Deciders:** Dennis  
 **Context:** QoT Professional Network design
 
@@ -66,12 +66,36 @@ Contract = { ..., project_id?, contract_type?, ... }
 ```
 Just as DAO contains Agents (which are q<T>),
 Project contains Phases (which are Contracts),
-Phases contain Tasks (which are sub-Contracts).
+Implementation Phase contains Milestones (payment gates),
+Milestones contain Tasks (which are sub-Contracts).
 
 Trust flows from contracts at every level.
 Projects coordinate contracts.
+Milestones coordinate payment.
 The math doesn't care about the coordination layer.
 ```
+
+### Four-Level Hierarchy
+
+```
+Project
+├── Specification Phase (contract)
+├── Planning Phase (contract)
+│   └── Outputs: Task definitions, Milestone groupings
+│
+└── Implementation Phase (contract)
+    ├── Milestone 1 (contract, payment gate)
+    │   ├── Task A (contract)
+    │   ├── Task B (contract)
+    │   └── Task C (contract)
+    │
+    ├── Milestone 2 (contract, payment gate)
+    │   └── Tasks...
+    │
+    └── Milestone N...
+```
+
+Milestones batch tasks into reviewable units with a single customer review point. Payment releases at milestone completion, not per-task. See **ADR_Milestone_Payment_Gates.md** for details.
 
 ### Circuit Size Comparison
 
@@ -98,19 +122,21 @@ Each subcontract is simply another contract in the agent's history.
 
 1. **No equation changes** -- Subcontracts use existing trust math
 2. **Backward compatible** -- Legacy standalone contracts work unchanged
-3. **Extensible** -- Tasks extend the pattern to team-based implementation
+3. **Extensible** -- Milestones and Tasks extend the pattern to incremental payment
 4. **Clean separation** -- Trust math vs coordination concerns decoupled
 5. **Incremental proofs** -- Each phase proven independently as completed
+6. **Incremental payment** -- Milestones release payment as work progresses
 
 ### Negative
 
 1. **Cross-contract references** -- Planning accuracy requires linking Implementation to Planning contract
 2. **Coordination overhead** -- Project metadata layer needed for sequencing
+3. **Additional contract level** -- Milestone layer adds hierarchy depth
 
 ### Neutral
 
 1. **Publication consent** -- Moves to project level (all phases share consent)
-2. **Escrow distribution** -- Coordinated by project, allocated to subcontracts
+2. **Escrow distribution** -- Coordinated by project, allocated through milestones to tasks
 
 ---
 
@@ -119,33 +145,78 @@ Each subcontract is simply another contract in the agent's history.
 ### Contract Extension
 
 ```
-contract_type: "standalone" | "specification" | "planning" | "implementation" | "task"
+contract_type: "standalone" | "specification" | "planning" | "implementation" | "milestone" | "task"
 project_id: optional reference to parent project
-parent_ref: optional reference to parent contract (for tasks)
+parent_ref: optional reference to parent contract (for milestones and tasks)
+```
+
+### Contract Type Constants
+
+```noir
+global CONTRACT_TYPE_STANDALONE: Field = 0;
+global CONTRACT_TYPE_SPECIFICATION: Field = 1;
+global CONTRACT_TYPE_PLANNING: Field = 2;
+global CONTRACT_TYPE_IMPLEMENTATION: Field = 3;
+global CONTRACT_TYPE_TASK: Field = 4;
+global CONTRACT_TYPE_MILESTONE: Field = 5;
 ```
 
 ### Task Decomposition
 
-Tasks extend the pattern one level deeper:
+The pattern extends to four levels:
 ```
-Project -> Phases (Subcontracts) -> Tasks (Sub-Subcontracts)
+Project -> Phases (Subcontracts) -> Milestones (Payment Gates) -> Tasks (Sub-Subcontracts)
 ```
 
-Each task is a contract with its own provider, enabling team-based implementation where different providers handle different tasks within a single phase.
+**Milestones** are payment gates within the Implementation phase. They:
+- Batch related tasks into reviewable units
+- Have a single customer review point (milestone deadline)
+- Release payment incrementally as work progresses
+- Serve as health check points for project continuation
+
+**Tasks** are atomic work units within a milestone. Each task:
+- Has its own provider (enabling team-based implementation)
+- Has a work duration deadline (planning data, not payment trigger)
+- Contributes to provider's skill-specific trust on acceptance
+- Can be disputed independently at milestone review
+
+**Trust flows through tasks, not milestones.** The milestone is a coordination container. Each task is a full contract in the provider's history.
 
 ### Difficulty Assessment
 
 Difficulty flows through the subcontract hierarchy:
 
 1. **Tasks**: Provider assesses difficulty (0-10) at contract acceptance
-2. **Phases**: Difficulty aggregates from tasks via stake-weighted average
-3. **Projects**: Difficulty aggregates from phases via stake-weighted average
+2. **Milestones**: Difficulty aggregates from tasks via stake-weighted average
+3. **Phases**: Difficulty aggregates from milestones via stake-weighted average
+4. **Projects**: Difficulty aggregates from phases via stake-weighted average
 
 ```
-d_phase = Σ(d_task × s_task) / Σ(s_task)
+d_milestone = Σ(d_task × s_task) / Σ(s_task)
+d_phase = Σ(d_milestone × s_milestone) / Σ(s_milestone)
 ```
 
 Tasks come from the Planning phase (customer's responsibility). The Implementation provider reviews tasks at acceptance and can request refinement before committing. Both parties have incentive for accurate ratings—incorrect difficulty leads to failed tasks, affecting trust for both provider and customer.
+
+### Milestone Definition
+
+Milestones are defined in the **Planning phase** as part of the Plan:
+
+```
+Plan Output
+├── Task definitions (what, skill type, stake allocation)
+├── Task deadlines (work duration)
+├── Milestone groupings (which tasks batch together)
+└── Milestone sequence (order of delivery)
+```
+
+At **contract acceptance**, the Implementation provider can request refinements:
+- Task breakdown changes
+- Deadline adjustments
+- Milestone regrouping
+- Stake reallocation within milestones
+
+Both parties must agree on the complete Plan before work begins.
 
 ### Customer Trust
 
@@ -157,11 +228,14 @@ Customers are trust-bearing entities. Bidirectional trust emerges naturally:
 
 ## Related Documents
 
+- **ADR_Milestone_Payment_Gates.md** -- Milestone lifecycle and payment flow
+- **ADR_Dispute_Resolution.md** -- Arbitration contracts and task-level disputes
 - **The_Difficulty_of_Assessing_Difficulty.md** -- How difficulty ratings are determined at the task level
 - **Quantum_of_Trust_Equations_in_CSharp.md** -- Full implementation with Task, CustomerProfile, CustomerTrustCalculator
 - **Quantum_of_Trust_Equations_in_Noir.md** -- ZK circuit implementation
 - **QuantumOfTrustTests.md** -- Test specifications including hierarchical contracts
 - **QoT_Professional_Network_UX_Analysis.md** -- UX flows and design decisions
+- **QoT_Aztec_Contract_Layer_Specification.md** -- Smart contract implementation
 
 ---
 
@@ -173,6 +247,8 @@ No migration required. The subcontract model is backward compatible:
 |---------------|----------|
 | Legacy standalone | project_id = null, contract_type = "standalone" |
 | New standalone | Same as legacy |
-| New subcontract | project_id = id, contract_type = phase type |
+| New phase | project_id = id, contract_type = phase type |
+| New milestone | project_id = id, parent_ref = phase_id, contract_type = "milestone" |
+| New task | project_id = id, parent_ref = milestone_id, contract_type = "task" |
 
 Existing contracts and proofs continue to work without modification.

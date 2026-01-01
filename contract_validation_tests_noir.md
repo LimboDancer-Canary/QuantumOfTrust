@@ -925,6 +925,265 @@ fn test_contract_skill_type_matching() {
     assert(!contract.is_skill(SkillType::new(1)));
     assert(!contract.is_skill(SkillType::new(0)));
 }
+
+// --------------------------------------------
+// HierarchicalContract Tests
+// --------------------------------------------
+
+#[test]
+fn test_hierarchical_contract_type_standalone() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: ContractType ∈ {Standalone, Project, Phase, Milestone, Task}
+    //
+    // PLAIN ENGLISH: "Standalone contracts are atomic work without 
+    // hierarchy. They have no parent reference."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_STANDALONE,
+        parent_id: Field::from(0),  // No parent
+        deadline: 0,
+    };
+    
+    assert(contract.is_standalone());
+    assert(!contract.is_project());
+    assert(!contract.is_phase());
+    assert(!contract.is_milestone());
+    assert(!contract.is_task());
+}
+
+#[test]
+fn test_hierarchical_contract_type_milestone() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: ContractType = 5 for Milestone
+    //       Milestones are payment gates within Implementation phases.
+    //
+    // PLAIN ENGLISH: "Milestones group tasks for incremental payment.
+    // Customer reviews at milestone deadline. Trust flows through 
+    // tasks, not milestones—milestones are coordination containers."
+    // See: ADR_Milestone_Payment_Gates.md
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_MILESTONE,
+        parent_id: Field::from(123),  // Parent phase
+        deadline: 1704067200,         // Computed from max(task deadlines)
+    };
+    
+    assert(contract.is_milestone());
+    assert(!contract.is_standalone());
+    assert(!contract.is_task());
+}
+
+#[test]
+fn test_hierarchical_contract_type_task() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: ContractType = 4 for Task
+    //       Tasks are atomic work units within milestones.
+    //
+    // PLAIN ENGLISH: "Tasks are the atomic work units where trust 
+    // actually flows. Each task has a provider, difficulty, and 
+    // outcome. Task deadline is work duration (planning data)."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_TASK,
+        parent_id: Field::from(456),  // Parent milestone
+        deadline: 604800,             // Work duration (e.g., 1 week)
+    };
+    
+    assert(contract.is_task());
+    assert(!contract.is_milestone());
+    assert(!contract.is_standalone());
+}
+
+#[test]
+fn test_hierarchical_contract_milestone_requires_parent() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: Milestone contracts must have parent_id ≠ 0
+    //
+    // PLAIN ENGLISH: "Milestones must reference their parent 
+    // implementation phase. A milestone without a parent is invalid."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_MILESTONE,
+        parent_id: Field::from(0),    // INVALID: No parent
+        deadline: 1704067200,
+    };
+    
+    // Validation should fail for milestone without parent
+    assert(!contract.has_valid_parent());
+}
+
+#[test]
+fn test_hierarchical_contract_task_requires_parent() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: Task contracts must have parent_id ≠ 0
+    //
+    // PLAIN ENGLISH: "Tasks must reference their parent milestone.
+    // A task without a parent milestone is invalid."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_TASK,
+        parent_id: Field::from(0),    // INVALID: No parent milestone
+        deadline: 604800,
+    };
+    
+    // Validation should fail for task without parent
+    assert(!contract.has_valid_parent());
+}
+
+#[test]
+fn test_hierarchical_contract_standalone_no_parent_ok() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: Standalone contracts may have parent_id = 0
+    //
+    // PLAIN ENGLISH: "Standalone contracts are atomic work without
+    // hierarchy. No parent reference is required."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let contract = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_STANDALONE,
+        parent_id: Field::from(0),    // Valid: standalone doesn't need parent
+        deadline: 0,
+    };
+    
+    // Validation should pass for standalone without parent
+    assert(contract.has_valid_parent());
+}
+
+// --------------------------------------------
+// Milestone Validation Tests
+// --------------------------------------------
+
+#[test]
+fn test_milestone_deadline_from_tasks() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: d_milestone = max(d_task for task in milestone)
+    //
+    // PLAIN ENGLISH: "Milestone deadline is computed from the latest
+    // task deadline within that milestone. This is when customer 
+    // review happens—not per-task during work."
+    // See: ADR_Milestone_Payment_Gates.md
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Task deadlines (work durations from contract start)
+    let task1_deadline: Field = 604800;   // Week 1
+    let task2_deadline: Field = 1209600;  // Week 2 (latest)
+    let task3_deadline: Field = 864000;   // 10 days
+    
+    // Milestone deadline = max of task deadlines
+    let milestone_deadline = compute_milestone_deadline(
+        [task1_deadline, task2_deadline, task3_deadline]
+    );
+    
+    assert(milestone_deadline == 1209600);  // Week 2
+}
+
+#[test]
+fn test_milestone_stake_from_tasks() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: s_milestone = Σ s_task for task in milestone
+    //
+    // PLAIN ENGLISH: "Milestone stake is the sum of task stakes.
+    // It's computed, not stored independently."
+    // ═══════════════════════════════════════════════════════════════
+    
+    let task1_stake: Field = 300;
+    let task2_stake: Field = 500;
+    let task3_stake: Field = 200;
+    
+    let milestone_stake = compute_milestone_stake(
+        [task1_stake, task2_stake, task3_stake]
+    );
+    
+    assert(milestone_stake == 1000);  // Sum of task stakes
+}
+
+#[test]
+fn test_milestone_difficulty_aggregation() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: d_milestone = Σ(d_task × w_task) / Σ w_task
+    //       Stake-weighted average of task difficulties.
+    //
+    // PLAIN ENGLISH: "Milestone difficulty aggregates from task
+    // difficulties weighted by stake. High-stake tasks contribute
+    // more to the aggregate."
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Task 1: difficulty 8, weight 2
+    // Task 2: difficulty 5, weight 1
+    // Weighted average = (8×2 + 5×1) / (2+1) = 21/3 = 7
+    
+    let difficulties: [Field; 2] = [8, 5];
+    let weights: [Field; 2] = [2, 1];
+    
+    let aggregate = compute_weighted_difficulty(difficulties, weights);
+    
+    // Result should be 7 (scaled by PRECISION if needed)
+    assert(aggregate == 7 * PRECISION);
+}
+
+#[test]
+fn test_contract_type_all_values_defined() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: ContractType ∈ {0, 1, 2, 3, 4, 5}
+    //       All six contract types must have distinct values.
+    //
+    // PLAIN ENGLISH: "The hierarchy is: Project → Phase → Milestone → Task.
+    // Standalone is for atomic work without hierarchy."
+    // ═══════════════════════════════════════════════════════════════
+    
+    assert(CONTRACT_TYPE_STANDALONE == 0);
+    assert(CONTRACT_TYPE_PROJECT == 1);
+    assert(CONTRACT_TYPE_PHASE == 2);
+    assert(CONTRACT_TYPE_SPECIFICATION == 3);
+    assert(CONTRACT_TYPE_TASK == 4);
+    assert(CONTRACT_TYPE_MILESTONE == 5);
+    
+    // All values are distinct
+    assert(CONTRACT_TYPE_STANDALONE != CONTRACT_TYPE_MILESTONE);
+    assert(CONTRACT_TYPE_TASK != CONTRACT_TYPE_MILESTONE);
+}
+
+#[test]
+fn test_task_trust_contribution_not_milestone() {
+    // ═══════════════════════════════════════════════════════════════
+    // MATH: V<t> = Σ ω(c) · outcome(c) for tasks
+    //       Milestones don't independently contribute to trust.
+    //
+    // PLAIN ENGLISH: "Trust flows through tasks, not milestones.
+    // Milestones are coordination containers for payment."
+    // See: ADR_Trust_Signal_Boundaries.md
+    // ═══════════════════════════════════════════════════════════════
+    
+    let task_contract = Contract {
+        counterparty: AgentId::new(2),
+        skill_type: SkillType::new(1),
+        stake: 500,
+        difficulty: 7,
+        outcome_offset: 180,     // +80 outcome (good)
+        completed_at: 1000,
+        weight: 2 * PRECISION,
+    };
+    
+    // Task contributes to trust
+    let contribution = task_contract.trust_contribution();
+    assert(contribution.magnitude > 0);
+    
+    // Milestone contract type check
+    let hierarchical = HierarchicalContract {
+        contract_type: CONTRACT_TYPE_MILESTONE,
+        parent_id: Field::from(123),
+        deadline: 1704067200,
+    };
+    
+    // Milestones are coordination containers
+    assert(hierarchical.is_milestone());
+    // Note: Trust flows through child tasks, not the milestone itself
+}
 ```
 
 ---
@@ -941,8 +1200,10 @@ fn test_contract_skill_type_matching() {
 | Contract.trust_contribution() | 4 | `V<t> = Σ ω(c) · outcome(c)` |
 | calculate_partial_outcome() | 4 | `outcome(c) ∈ [-1, 1]` |
 | Skill type matching | 1 | `V<t>(Agent(t, h<t>))` |
+| HierarchicalContract types | 7 | `ContractType ∈ {0..5}` |
+| Milestone validation | 5 | `d_milestone = max(d_task)`, `s_milestone = Σ s_task` |
 
-**Total: 38 tests**
+**Total: 50 tests**
 
 ---
 
@@ -954,6 +1215,9 @@ fn test_contract_skill_type_matching() {
 | 5 | `c = (a<provider>, a<consumer>, t, s, d, τ)` | Contract has provider, consumer, skill, stake, difficulty, deadline |
 | 6 | `outcome(c) ∈ [-1, 1]` | Outcome ranges from complete failure to complete success |
 | 7 | `ω(c) = f(s, d, V<t>, recency)` | Weight depends on stake, difficulty, counterparty, recency |
+| 18 | `d_milestone = max(d_task)` | Milestone deadline computed from latest task deadline |
+| 18 | `s_milestone = Σ s_task` | Milestone stake computed from sum of task stakes |
+| 18 | `d_diff_milestone = Σ(d_task × w_task) / Σ w_task` | Milestone difficulty = stake-weighted average |
 
 ---
 
@@ -964,3 +1228,16 @@ fn test_contract_skill_type_matching() {
 3. **Weight bounds**: Prevents malicious weight inflation based on stake
 4. **Active contract detection**: Empty slots correctly identified and skipped
 5. **Skill type scoping**: Trust computed independently per skill type
+6. **Hierarchical contract types**: All six types (0-5) correctly distinguished
+7. **Parent reference validation**: Tasks and milestones must have parent_id ≠ 0
+8. **Milestone computation**: Deadline and stake computed from child tasks
+9. **Trust flow boundaries**: Trust flows through tasks, not milestones
+
+---
+
+## Related Documents
+
+- **ADR_Milestone_Payment_Gates.md** — Milestone-based payment model
+- **ADR_Trust_Signal_Boundaries.md** — Trust flows through tasks, not milestones
+- **ADR_Dispute_Resolution.md** — Customer review at milestone deadline
+- **Quantum_of_Trust_Equations_in_Noir.md** — Full circuit implementation

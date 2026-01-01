@@ -265,13 +265,15 @@ Organizations become DAOs with aggregate trust:
 The current QoT model treats contracts as atomic: they exist, then they have an outcome. But professional work is *phased*. A software project typically moves through:
 
 1. **Specification** -> Agreement on scope and deliverables
-2. **Planning** -> Implementation approach, task breakdown
-3. **Implementation** -> Actual work, with milestone checkpoints
+2. **Planning** -> Implementation approach, task breakdown, milestone groupings
+3. **Implementation** -> Actual work, with milestone-based payment gates
 4. **Verification** -> Customer acceptance (tests passing, demo accepted)
 
 The first three phases represent *trust-relevant events* for providers. Completing specification demonstrates requirements analysis skill. Completing planning demonstrates architecture skill. Completing implementation demonstrates development skill.
 
 Verification is different--it's the customer's acceptance mechanism that determines the implementation outcome.
+
+**Milestone-based payment**: Within Implementation, tasks are grouped into milestones. Customer reviews at milestone deadline (not per-task): accept all tasks, dispute specific tasks, or timeout. This creates incremental payment gates that reduce provider risk. See **ADR_Milestone_Payment_Gates.md**.
 
 ### Proposed: Multi-Phase Contract Structure
 
@@ -311,11 +313,29 @@ c_phased = (
     },
     {
       phase_type: "implementation",
-      provider: a_developer,
+      provider: a_developer,           // Lead provider (may delegate tasks)
       skill_type: t_development,
       stake_portion: 0.60,
-      outcome: +0.90,              // Determined by verification
+      outcome: +0.90,                  // Aggregate from milestone/task outcomes
       signed_by: [a_developer, a_customer],
+      
+      milestones: [                    // Payment gates within implementation
+        {
+          milestone_id: 1,
+          tasks: [task_1, task_2, task_3],
+          deadline: timestamp_1,       // max(task deadlines) in this milestone
+          status: "completed",
+          stake: computed_from_tasks   // sum(task stakes)
+        },
+        {
+          milestone_id: 2,
+          tasks: [task_4, task_5, task_6],
+          deadline: timestamp_2,
+          status: "in_progress",
+          stake: computed_from_tasks
+        }
+      ],
+      
       tasks_completed_as_planned: 10,
       tasks_deviated: 2,
       completed_at: timestamp
@@ -509,8 +529,12 @@ At any transition:
 |  +------------------------------------------------------------+ |
 |  | + Implementation                                           | |
 |  |   Skill: [TypeScript Development ]                        | |
-|  |   Milestones: [MVP] [Beta] [Production]                    | |
+|  |   Milestones (payment gates):                              | |
+|  |     M1: [Core Features   ] Deadline: [Feb 15] Tasks: [4]   | |
+|  |     M2: [Integration     ] Deadline: [Mar 01] Tasks: [3]   | |
+|  |     M3: [Production Ready] Deadline: [Mar 15] Tasks: [2]   | |
 |  |   Deadline: [Mar 15, 2026]   Stake portion: [60%]          | |
+|  |   Note: Customer reviews at milestone deadlines            | |
 |  +------------------------------------------------------------+ |
 |                                                                 |
 |  VERIFICATION (Customer Acceptance)                             |
@@ -686,7 +710,7 @@ At any transition:
 
 ### Flow 5: Team-Based Implementation (Task Roster)
 
-When an Implementation phase has multiple providers via task decomposition:
+When an Implementation phase has multiple providers via task decomposition, tasks are grouped into milestones:
 
 ```
 
@@ -694,47 +718,72 @@ When an Implementation phase has multiple providers via task decomposition:
 
                                                                      
   IMPLEMENTATION PHASE  Team Roster                                 
-  Total Stake: 3,000 sats . Deadline: Mar 15                        
+  Total Stake: 3,000 sats . Final Deadline: Mar 15                   
   Phase Difficulty: 7.2 (aggregate from tasks)                       
                                                                      
     
-    TASK ASSIGNMENTS                                               
-                                                                   
+    MILESTONE 1: Core Relay    Deadline: Feb 01    Status: Complete  
+    Stake: 1,200 sats                                                
+       
     Task                    Provider   Difficulty  Weight  Status   
        
     WebSocket Handler       Alice         8         2.0    Complete 
-      Stake: 1,200 sats . Outcome: +0.95                           
-                                                                   
-    Event Storage           Bob           7         2.0    In Progress
-      Stake: 1,200 sats . 67% complete                             
-                                                                   
-    NIP-01 Compliance       Alice         6         1.0    Pending  
-      Stake: 600 sats                                              
-                                                                   
+      Stake: 800 sats . Outcome: +0.95                               
+                                                                     
+    Event Storage           Bob           7         1.0    Complete  
+      Stake: 400 sats . Outcome: +0.92                               
+       
+    ✓ Customer accepted all tasks . Payment released                 
+    
+                                                                     
+    MILESTONE 2: NIP Compliance    Deadline: Mar 01    Status: Active
+    Stake: 1,000 sats                                                
+       
+    Task                    Provider   Difficulty  Weight  Status   
+       
+    NIP-01 Compliance       Alice         6         1.0    Complete 
+      Stake: 500 sats . Outcome: +0.88                               
+                                                                     
+    NIP-09 Deletions        Bob           5         1.0    In Progress
+      Stake: 500 sats . 67% complete                                 
+       
+    ⏳ Awaiting milestone deadline for customer review                
+    
+                                                                     
+    MILESTONE 3: Production   Deadline: Mar 15    Status: Pending    
+    Stake: 800 sats                                                  
+       
+    Task                    Provider   Difficulty  Weight  Status   
+       
+    Performance Tuning      Alice         7         1.0    Pending  
+      Stake: 800 sats                                                
     
                                                                      
   TEAM TRUST CONTRIBUTIONS (projected)                               
     
-    Alice (Tasks 1, 3)                                             
-      TypeScript: +7.2 cutes (from WebSocket, NIP-01)              
-                                                                   
-    Bob (Task 2)                                                   
-      TypeScript: +4.8 cutes (from Event Storage)                  
+    Alice (Tasks 1, 3, 5)                                             
+      TypeScript: +9.4 cutes (from WebSocket, NIP-01, Perf)          
+                                                                     
+    Bob (Tasks 2, 4)                                                  
+      TypeScript: +5.2 cutes (from Event Storage, NIP-09)            
     
                                                                      
-  Planning Accuracy: 2/3 tasks as planned (67%)                      
-     Architect earns Project Estimation trust                       
+  Planning Accuracy: 4/5 tasks as planned (80%)                       
+     Architect earns Project Estimation trust                        
                                                                      
 
 ```
 
 **Key team implementation properties:**
+- Tasks are grouped into milestones (payment gates)
+- Each milestone has a deadline computed from max(task deadlines)
+- Customer reviews at milestone deadline, not per-task
+- Non-disputed tasks in a milestone are paid immediately upon acceptance
+- Disputed tasks enter arbitration (see ADR_Dispute_Resolution.md)
 - Each task is a sub-subcontract with its own provider
 - Each task has its own difficulty rating (assessed by the task provider at acceptance)
 - Phase difficulty aggregates from task difficulties via stake-weighted average
-- Stake distributes proportionally to task weight
 - Each provider earns trust only from their assigned tasks
-- Task completion status tracked independently
 - Planning accuracy measured against original task breakdown
 
 ### Flow 6: Provider Acceptance (Difficulty Assessment)
@@ -914,7 +963,117 @@ During implementation, discovered complexity requires adding new tasks.
 - Planning accuracy tracked (affects architect's trust if they did planning)
 - Both parties must approve amendment
 
-### Flow 10: Provider Calibration View
+### Flow 10: Milestone Review (Customer)
+
+Customer reviews completed tasks at milestone deadline. This is the payment gate.
+
+```
+
+  MILESTONE REVIEW                                                    
+                                                                     
+  Contract: Authentication System Implementation                      
+  Milestone: M2 - Third-Party Integration                            
+  Deadline: Feb 15, 2026 (today)                                     
+  Milestone Stake: 2,750 sats                                        
+                                                                     
+    
+    COMPLETED TASKS IN THIS MILESTONE                                
+                                                                    
+    Task                       Provider    Stake    Outcome          
+       
+    T4: OAuth2 integration     DevAlice   1,250    +0.92  ✓         
+        Tests passing, demo accepted                                 
+                                                                    
+    T5: Rate limiting          DevAlice     750    +0.85  ✓         
+        Implemented as specified                                     
+                                                                    
+    T6: Security audit         DevBob       750    +0.78  ?         
+        Minor concerns about token handling                          
+                                                                    
+    
+                                                                     
+  YOUR OPTIONS                                                       
+                                                                     
+  (●) Accept all tasks                                               
+      └─ Release 2,750 sats to providers                            
+      └─ Trust updates: DevAlice +4.2, DevBob +1.8                  
+                                                                     
+  ( ) Dispute specific tasks                                         
+      └─ Non-disputed tasks paid immediately                        
+      └─ Disputed tasks enter arbitration                           
+      └─ [Select tasks to dispute]                                  
+                                                                     
+  ( ) Let deadline pass (timeout)                                    
+      └─ All tasks automatically accepted                           
+      └─ Payment released, trust updated                            
+                                                                     
+  Time remaining: 23:45:12                                           
+                                                                     
+  [Accept All]  [Dispute Selected]                                   
+
+```
+
+**Key milestone review properties:**
+- Customer reviews at milestone deadline, not per-task during work
+- Three options: accept all, dispute specific tasks, or timeout
+- Non-disputed tasks are paid immediately upon decision
+- Disputed tasks enter Tier-1 arbitration (single arbitrator)
+- Timeout = acceptance (customer forfeits review opportunity)
+- Trust updates happen when payment is released
+- See **ADR_Milestone_Payment_Gates.md** and **ADR_Dispute_Resolution.md**
+
+### Flow 11: Task Dispute (Partial Milestone)
+
+When customer disputes specific tasks within a milestone:
+
+```
+
+  TASK DISPUTE                                                        
+                                                                     
+  Contract: Authentication System Implementation                      
+  Milestone: M2 - Third-Party Integration                            
+                                                                     
+    
+    NON-DISPUTED TASKS (payment releasing)                           
+                                                                    
+    Task                       Provider    Stake    Status           
+       
+    T4: OAuth2 integration     DevAlice   1,250    Paid ✓           
+    T5: Rate limiting          DevAlice     750    Paid ✓           
+                                                                    
+    Total released: 2,000 sats                                       
+    
+                                                                     
+    DISPUTED TASK                                                    
+                                                                    
+    Task: T6 - Security audit                                        
+    Provider: DevBob                                                 
+    Stake: 750 sats (held in escrow)                                 
+                                                                    
+    Your evidence:                                                   
+    ┌─────────────────────────────────────────────────────────────┐ 
+    │ Token refresh implementation has race condition that could  │ 
+    │ lead to session hijacking. Audit report did not identify    │ 
+    │ this critical vulnerability. See attached PoC exploit.      │ 
+    └─────────────────────────────────────────────────────────────┘ 
+                                                                    
+    Evidence hash: bafybeig...xyz                                    
+    
+                                                                     
+  DISPUTE PROCESS                                                    
+                                                                     
+    1. Provider (DevBob) submits counter-evidence                    
+    2. Both parties propose arbitrators                              
+    3. First mutually-acceptable arbitrator selected                 
+    4. Arbitrator reviews and sets payout percentage                 
+    5. Loser pays 5% arbitration fee                                 
+    6. Appeal available within 72 hours (15% fee, 3-arbitrator panel)
+                                                                     
+  [Submit Dispute]  [Cancel (Accept Task)]                           
+
+```
+
+### Flow 12: Provider Calibration View
 
 Providers can view their difficulty estimation accuracy over time.
 
@@ -1234,8 +1393,11 @@ Separate pages to be added:
 | **Task Refinement Request** | Provider requests customer break down vague/broad tasks |
 | **Task Refinement Response** | Customer responds with refined breakdown or negotiates as-is |
 | **Contract Amendment** | Mid-contract: add new tasks with difficulty ratings for discovered complexity |
+| **Milestone Review** | Customer reviews completed tasks at milestone deadline: accept, dispute, or timeout |
+| **Task Dispute** | Customer disputes specific task(s); submit evidence, select arbitrator |
+| **Arbitration View** | Arbitrator reviews evidence, sets payout percentage |
 | **Phase Approval** | Mutual sign-off workflow for phase completion |
-| **Project View** | Multi-phase project coordination, task assignments |
+| **Project View** | Multi-phase project coordination, milestone tracking, task assignments |
 | **DAO Profile** | Organizational trust aggregation, member roster |
 | **Eligibility Proof** | Generate and share ZK proofs for specific thresholds |
 | **Customer Dashboard** | Customer-specific metrics (for providers evaluating customers) |
@@ -1299,16 +1461,21 @@ Key design decisions that distinguish QoT from traditional professional networks
 | **Negative trust is permanent signal** | Failed contracts compute into trust and cannot be deleted. This is what makes QoT trust meaningful--you can't curate your history. |
 | **Bidirectional trust** | Customers earn trust from behavior (commitment, escrow discipline, verification integrity, scope stability). Providers can evaluate customers before accepting contracts. |
 | **Verification weight** | Customer credibility affects how much their ratings count. Rubber-stamping (low variance) or erratic (high variance) customers have reduced influence. |
-| **Team-based implementation** | Tasks within phases can have different providers. Each team member earns trust from their assigned tasks independently. Enables specialist collaboration at the task level. |
+| **Team-based implementation** | Tasks within milestones can have different providers. Each team member earns trust from their assigned tasks independently. Enables specialist collaboration at the task level. |
 | **Customer trust dashboard** | Providers see customer metrics (commitment rate, escrow discipline, scope stability) before accepting contracts. Creates informed matching. |
 | **Task-level difficulty assessment** | Difficulty is assessed at the task level by the provider at acceptance, not set by the customer. Phase difficulty aggregates from task difficulties. Both parties have incentive for accuracy—incorrect ratings lead to failed tasks affecting both. |
+| **Milestone-based payment gates** | Tasks are grouped into milestones within Implementation. Customer reviews at milestone deadline (not per-task): accept all, dispute specific tasks, or timeout. Reduces provider risk via incremental payment. |
+| **Deadline-based dispute resolution** | Customer disputes at milestone review trigger arbitration. Non-disputed tasks paid immediately. Tiered system: Tier-1 (single arbitrator, 5% fee), Tier-2 appeal (3-arbitrator panel, 15% fee). Deadlocked disputes refund all parties. |
+| **Trust flows through tasks, not milestones** | Milestones are coordination containers for payment. Trust attribution happens at the task level. This keeps the math simple while enabling incremental payment. |
 
 ---
 
 ## Related Documents
 
+- **ADR_Milestone_Payment_Gates.md** — Milestone-based payment model and customer review workflow
+- **ADR_Dispute_Resolution.md** — Deadline-based dispute resolution with tiered arbitration
 - **The_Difficulty_of_Assessing_Difficulty.md** — How difficulty ratings are determined at the task level
 - **ADR_Subcontract_Architecture.md** — Multi-phase contract decomposition
 - **ADR_No_Endorsements.md** — Why contract outcomes replace attestations
-- **Quantum_of_Trust_Equations_in_CSharp.md** — Implementation with Task, PhaseWithTasks, CustomerProfile
+- **Quantum_of_Trust_Equations_in_CSharp.md** — Implementation with Task, MilestoneWithTasks, PhaseWithTasks, CustomerProfile
 - **Quantum_of_Trust_Equations_in_Noir.md** — ZK circuit implementation

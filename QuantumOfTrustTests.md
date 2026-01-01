@@ -37,6 +37,7 @@ All tests follow the **Arrange-Act-Assert (AAA)** pattern:
 16. [Task Decomposition Tests](#16-task-decomposition-tests)
 17. [Customer Profile Tests](#17-customer-profile-tests)
 18. [Hierarchical Contract Tests](#18-hierarchical-contract-tests)
+19. [Milestone Tests](#19-milestone-tests)
 
 ---
 
@@ -2901,13 +2902,13 @@ public class VerificationWeightTests
 
 ## 16. Task Decomposition Tests
 
-Tests for task-level decomposition within phases and team-based implementation.
+Tests for task-level decomposition within milestones and team-based implementation.
 
 **Mathematical Notation:**
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────
-│  s_task = s_phase × (w_task / Σ w_tasks)                                     │
+│  s_task = s_milestone × (w_task / Σ w_tasks)                                  │
 └───────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -2918,11 +2919,12 @@ Tests for task-level decomposition within phases and team-based implementation.
 /// 
 /// Mathematical notation:
 /// ┌───────────────────────────────────────────────────────────────────────────────
-/// │  s_task = s_phase × (w_task / Σ w_tasks)                                     │
+/// │  s_task = s_milestone × (w_task / Σ w_tasks)                                  │
 /// └───────────────────────────────────────────────────────────────────────────────
 /// 
-/// Tasks are sub-subcontracts within phases.
+/// Tasks are atomic work units within milestones.
 /// Each task can have its own provider (enabling team-based implementation).
+/// Trust flows through tasks. Milestones are coordination containers.
 /// </summary>
 public class TaskDecompositionTests
 {
@@ -2930,20 +2932,20 @@ public class TaskDecompositionTests
     public void ComputeTaskStake_EqualWeights_SplitsEvenly()
     {
         // ═══════════════════════════════════════════════════════════════════
-        // EQUATION: s_task = s_phase × (w_task / Σ w_tasks)
+        // EQUATION: s_task = s_milestone × (w_task / Σ w_tasks)
         // 
-        // phase_stake = 1000, 4 tasks with weight 1.0 each
+        // milestone_stake = 1000, 4 tasks with weight 1.0 each
         // task_stake = 1000 × (1 / 4) = 250
         // ═══════════════════════════════════════════════════════════════════
         
         // ARRANGE
-        double phaseStake = 1000;
+        double milestoneStake = 1000;
         double taskWeight = 1.0;
         double totalTaskWeight = 4.0;  // 4 tasks × 1.0 each
 
         // ACT
         var taskStake = TaskDecomposition.ComputeTaskStake(
-            phaseStake, taskWeight, totalTaskWeight);
+            milestoneStake, taskWeight, totalTaskWeight);
 
         // ASSERT
         Assert.Equal(250.0, taskStake);
@@ -2953,21 +2955,21 @@ public class TaskDecompositionTests
     public void ComputeTaskStake_UnequalWeights_ProportionalSplit()
     {
         // ═══════════════════════════════════════════════════════════════════
-        // EQUATION: s_task = s_phase × (w_task / Σ w_tasks)
+        // EQUATION: s_task = s_milestone × (w_task / Σ w_tasks)
         // 
-        // phase_stake = 1000
+        // milestone_stake = 1000
         // Task weights: 2.0, 1.0, 1.0 (total = 4.0)
         // First task: 1000 × (2 / 4) = 500
         // ═══════════════════════════════════════════════════════════════════
         
         // ARRANGE
-        double phaseStake = 1000;
+        double milestoneStake = 1000;
         double taskWeight = 2.0;
         double totalTaskWeight = 4.0;
 
         // ACT
         var taskStake = TaskDecomposition.ComputeTaskStake(
-            phaseStake, taskWeight, totalTaskWeight);
+            milestoneStake, taskWeight, totalTaskWeight);
 
         // ASSERT
         Assert.Equal(500.0, taskStake);
@@ -2981,13 +2983,13 @@ public class TaskDecompositionTests
         // ═══════════════════════════════════════════════════════════════════
         
         // ARRANGE
-        double phaseStake = 1000;
+        double milestoneStake = 1000;
         double taskWeight = 1.0;
         double totalTaskWeight = 0.0;
 
         // ACT
         var taskStake = TaskDecomposition.ComputeTaskStake(
-            phaseStake, taskWeight, totalTaskWeight);
+            milestoneStake, taskWeight, totalTaskWeight);
 
         // ASSERT
         Assert.Equal(0.0, taskStake);
@@ -3310,12 +3312,15 @@ public class CustomerProfileTests
 
 ## 18. Hierarchical Contract Tests
 
-Tests for hierarchical contract structure (Project → Phase → Task).
+Tests for hierarchical contract structure (Project → Phase → Milestone → Task).
 
 ```csharp
 
 /// <summary>
 /// Tests for hierarchical contract structure.
+/// 
+/// Hierarchy: Project → Phase → Milestone → Task
+/// Trust flows through tasks. Milestones are coordination containers (payment gates).
 /// </summary>
 public class HierarchicalContractTests
 {
@@ -3336,7 +3341,7 @@ public class HierarchicalContractTests
     [Fact]
     public void Contract_TaskType_RequiresParentRef()
     {
-        // ARRANGE
+        // ARRANGE: Task contracts must reference their parent milestone
         var provider = new Agent { SkillType = SkillTypes.Engineering };
         var consumer = new Agent { SkillType = SkillTypes.Engineering };
         
@@ -3349,13 +3354,13 @@ public class HierarchicalContractTests
             Difficulty = 5,
             Deadline = DateTime.UtcNow.AddDays(7),
             Type = ContractType.Task,
-            ParentRef = null  // Missing parent!
+            ParentRef = null  // Missing parent milestone!
         };
 
         // ACT
         var errors = taskContract.Validate();
 
-        // ASSERT
+        // ASSERT: Task must have ParentRef pointing to parent milestone
         Assert.Contains(errors, e => e.Contains("ParentRef"));
     }
 
@@ -3425,8 +3430,8 @@ public class HierarchicalContractTests
             Outcome = 1.0
         };
 
-        // ACT
-        var taskStake = task.ComputeStake(phaseStake: 1000, totalTaskWeight: 5.0);
+        // ACT: Task stake relative to parent milestone
+        var taskStake = task.ComputeStake(milestoneStake: 1000, totalTaskWeight: 5.0);
 
         // ASSERT: 1000 × (2 / 5) = 400
         Assert.Equal(400.0, taskStake);
@@ -3438,11 +3443,17 @@ public class HierarchicalContractTests
     [InlineData(ContractType.Planning)]
     [InlineData(ContractType.Implementation)]
     [InlineData(ContractType.Task)]
+    [InlineData(ContractType.Milestone)]
     public void ContractType_AllValuesValid(ContractType type)
     {
         // ARRANGE
         var provider = new Agent { SkillType = SkillTypes.Engineering };
         var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        // Task and Milestone types require ParentRef
+        Guid? parentRef = (type == ContractType.Task || type == ContractType.Milestone) 
+            ? Guid.NewGuid() 
+            : null;
         
         var contract = new Contract
         {
@@ -3453,7 +3464,7 @@ public class HierarchicalContractTests
             Difficulty = 5,
             Deadline = DateTime.UtcNow.AddDays(7),
             Type = type,
-            ParentRef = type == ContractType.Task ? Guid.NewGuid() : null
+            ParentRef = parentRef
         };
 
         // ACT
@@ -3461,6 +3472,397 @@ public class HierarchicalContractTests
 
         // ASSERT
         Assert.Empty(errors);
+    }
+}
+
+```
+
+---
+
+## 19. Milestone Tests
+
+Tests for milestone payment gates within Implementation phases.
+
+**Mathematical Notation:**
+
+```
+┌───────────────────────────────────────────────────────────────────────────────
+│  s_milestone = Σ s_task                                                      │
+│  d_milestone = max(d_task)  // deadline, not difficulty                      │
+│  d_diff_milestone = Σ(d_task × s_task) / Σ s_task  // difficulty aggregation │
+└───────────────────────────────────────────────────────────────────────────────
+```
+
+```csharp
+
+/// <summary>
+/// Tests for milestone payment gates.
+/// 
+/// Milestones are coordination containers within Implementation phases.
+/// Trust flows through tasks, not milestones.
+/// Customer reviews at milestone deadline: accept all, dispute specific, or timeout.
+/// 
+/// See: ADR_Milestone_Payment_Gates.md, ADR_Dispute_Resolution.md
+/// </summary>
+public class MilestoneTests
+{
+    [Fact]
+    public void MilestoneWithTasks_ComputeStake_SumOfTaskStakes()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: s_milestone = Σ s_task
+        // Milestone stake is not stored—it's computed from child tasks
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 2.0, Outcome = 1.0 },  // 400 sats
+                new Task { Provider = provider, Weight = 1.0, Outcome = 0.9 },  // 200 sats
+                new Task { Provider = provider, Weight = 2.0, Outcome = 0.8 },  // 400 sats
+            }
+        };
+        
+        double phaseStake = 1000;
+        double totalPhaseTaskWeight = 5.0;
+
+        // ACT
+        var milestoneStake = milestone.ComputeStake(phaseStake, totalPhaseTaskWeight);
+
+        // ASSERT: All tasks are in this milestone, so stake = 1000
+        Assert.Equal(1000.0, milestoneStake);
+    }
+
+    [Fact]
+    public void MilestoneWithTasks_ComputeDeadline_MaxOfTaskDeadlines()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: d_milestone = max(d_task)
+        // Milestone deadline computed from latest task deadline
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var baseDate = DateTime.UtcNow;
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 1.0, Deadline = baseDate.AddDays(5) },
+                new Task { Provider = provider, Weight = 1.0, Deadline = baseDate.AddDays(10) },  // Latest
+                new Task { Provider = provider, Weight = 1.0, Deadline = baseDate.AddDays(7) },
+            }
+        };
+
+        // ACT
+        var milestoneDeadline = milestone.ComputeDeadline();
+
+        // ASSERT: Deadline is the latest task deadline
+        Assert.NotNull(milestoneDeadline);
+        Assert.Equal(baseDate.AddDays(10), milestoneDeadline.Value);
+    }
+
+    [Fact]
+    public void MilestoneWithTasks_ComputeDeadline_NoDeadlines_ReturnsNull()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Edge case: Tasks without deadlines
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 1.0, Deadline = null },
+                new Task { Provider = provider, Weight = 1.0, Deadline = null },
+            }
+        };
+
+        // ACT
+        var milestoneDeadline = milestone.ComputeDeadline();
+
+        // ASSERT
+        Assert.Null(milestoneDeadline);
+    }
+
+    [Fact]
+    public void MilestoneWithTasks_ComputeAggregateDifficulty_StakeWeightedAverage()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // EQUATION: d_milestone = Σ(d_task × w_task) / Σ w_task
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 2.0, Difficulty = 8.0, Outcome = 1.0 },
+                new Task { Provider = provider, Weight = 1.0, Difficulty = 5.0, Outcome = 1.0 },
+            }
+            // Weighted difficulty = (2×8 + 1×5) / (2+1) = 21/3 = 7.0
+        };
+
+        // ACT
+        var difficulty = milestone.ComputeAggregateDifficulty();
+
+        // ASSERT
+        Assert.Equal(7.0, difficulty);
+    }
+
+    [Fact]
+    public void MilestoneWithTasks_AggregateProviderContribution_SingleProvider()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Provider contribution aggregated from tasks within milestone
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = provider, Weight = 1.0, Outcome = 1.0 },
+                new Task { Provider = provider, Weight = 1.0, Outcome = 0.8 },
+            }
+        };
+
+        // ACT
+        var contribution = milestone.AggregateProviderContribution(provider, milestoneWeight: 2.0);
+
+        // ASSERT
+        Assert.True(contribution > 0, "Provider with positive outcomes should have positive contribution");
+    }
+
+    [Fact]
+    public void MilestoneWithTasks_AggregateProviderContribution_TeamBased()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Team-based: Multiple providers in same milestone
+        // Each provider only gets credit for their own tasks
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var alice = new Agent { SkillType = SkillTypes.Engineering };
+        var bob = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestone = new MilestoneWithTasks
+        {
+            ParentPhaseId = Guid.NewGuid(),
+            Tasks = new[]
+            {
+                new Task { Provider = alice, Weight = 1.0, Outcome = 1.0 },   // Alice's task
+                new Task { Provider = bob, Weight = 1.0, Outcome = -0.5 },    // Bob's task
+            }
+        };
+
+        // ACT
+        var aliceContribution = milestone.AggregateProviderContribution(alice, milestoneWeight: 2.0);
+        var bobContribution = milestone.AggregateProviderContribution(bob, milestoneWeight: 2.0);
+
+        // ASSERT
+        Assert.True(aliceContribution > 0, "Alice (success) should have positive contribution");
+        Assert.True(bobContribution < 0, "Bob (failure) should have negative contribution");
+    }
+
+    [Fact]
+    public void Contract_MilestoneType_RequiresParentRef()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Milestone contracts must reference their parent implementation phase
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var milestoneContract = new Contract
+        {
+            Provider = provider,
+            Consumer = consumer,
+            SkillType = SkillTypes.Engineering,
+            Stake = 500,
+            Difficulty = 5,
+            Deadline = DateTime.UtcNow.AddDays(14),
+            Type = ContractType.Milestone,
+            ParentRef = null  // Missing parent implementation phase!
+        };
+
+        // ACT
+        var errors = milestoneContract.Validate();
+
+        // ASSERT
+        Assert.Contains(errors, e => e.Contains("ParentRef"));
+    }
+
+    [Fact]
+    public void PhaseWithTasks_WithMilestones_AggregatesAcrossMilestones()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // PhaseWithTasks can contain milestones, each with its own tasks
+        // Provider contribution aggregates across all milestones
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var alice = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: alice,
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30),
+            weight: 2.0
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Milestones = new[]
+            {
+                new MilestoneWithTasks
+                {
+                    ParentPhaseId = phaseContract.Id,
+                    Tasks = new[]
+                    {
+                        new Task { Provider = alice, Weight = 1.0, Outcome = 1.0 },
+                    }
+                },
+                new MilestoneWithTasks
+                {
+                    ParentPhaseId = phaseContract.Id,
+                    Tasks = new[]
+                    {
+                        new Task { Provider = alice, Weight = 1.0, Outcome = 0.8 },
+                    }
+                }
+            }
+        };
+
+        // ACT
+        var contribution = phase.AggregateProviderContribution(alice);
+
+        // ASSERT: Contribution spans both milestones
+        Assert.True(contribution > 0, "Provider with positive outcomes should have positive contribution");
+    }
+
+    [Fact]
+    public void PhaseWithTasks_TotalTaskWeight_IncludesMilestones()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // TotalTaskWeight includes tasks from all milestones
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var consumer = new Agent { SkillType = SkillTypes.Engineering };
+        
+        var phaseContract = Contract.Create(
+            provider: provider,
+            consumer: consumer,
+            skillType: SkillTypes.Engineering,
+            stake: 1000,
+            difficulty: 5,
+            deadline: DateTime.UtcNow.AddDays(30)
+        );
+
+        var phase = new PhaseWithTasks
+        {
+            PhaseContract = phaseContract,
+            Milestones = new[]
+            {
+                new MilestoneWithTasks
+                {
+                    Tasks = new[]
+                    {
+                        new Task { Provider = provider, Weight = 2.0, Outcome = 1.0 },
+                        new Task { Provider = provider, Weight = 1.0, Outcome = 1.0 },
+                    }
+                },
+                new MilestoneWithTasks
+                {
+                    Tasks = new[]
+                    {
+                        new Task { Provider = provider, Weight = 2.0, Outcome = 1.0 },
+                    }
+                }
+            }
+        };
+
+        // ACT
+        var totalWeight = phase.TotalTaskWeight;
+
+        // ASSERT: 2 + 1 + 2 = 5
+        Assert.Equal(5.0, totalWeight);
+    }
+
+    [Fact]
+    public void Task_ParentMilestoneId_TracksHierarchy()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Tasks reference their parent milestone via ParentMilestoneId
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var milestoneId = Guid.NewGuid();
+        
+        var task = new Task
+        {
+            Provider = provider,
+            ParentMilestoneId = milestoneId,
+            Weight = 1.0,
+            Outcome = 1.0,
+            Deadline = DateTime.UtcNow.AddDays(7)
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(milestoneId, task.ParentMilestoneId);
+    }
+
+    [Fact]
+    public void Task_Deadline_IsWorkDuration_NotPaymentTrigger()
+    {
+        // ═══════════════════════════════════════════════════════════════════
+        // Task deadline is work duration allocation (planning data)
+        // NOT a payment trigger—payment happens at milestone deadline
+        // See: ADR_Milestone_Payment_Gates.md
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // ARRANGE
+        var provider = new Agent { SkillType = SkillTypes.Engineering };
+        var taskDeadline = DateTime.UtcNow.AddDays(7);
+        
+        var task = new Task
+        {
+            Provider = provider,
+            Weight = 1.0,
+            Outcome = 1.0,
+            Deadline = taskDeadline  // Work duration deadline
+        };
+
+        // ACT & ASSERT
+        Assert.Equal(taskDeadline, task.Deadline);
+        // Note: This is planning data. Customer reviews at milestone deadline, not per-task.
     }
 }
 
