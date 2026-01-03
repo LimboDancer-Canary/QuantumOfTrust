@@ -36,7 +36,7 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 - [**Aztec Contract Layer**](./QoT_Aztec_Contract_Layer_Specification.md) — Smart contract architecture for QoTRegistry, QoTEscrow, QoTAvatar
 - [**Nostria Client Specification**](./QoT_Nostria_Client_Specification.md) — Technical architecture for Nostr client integration
 - [**ZK Relay Integration Spec**](./ZK_Relay_Integration_Spec.md) — strfry extension architecture
-- [**NostrRTC-Relay Spec**](./NostrRTC-Relay.md) — Privacy-locked Nostr-native RTC relay specification (WebRTC signaling + TURN integration)
+- [**NostrRTC-Relay Spec**](./nostr_rtc_relay_specification.md) — Privacy-locked Nostr-native RTC relay specification (WebRTC signaling + TURN integration)
 
 ### Nostr Integration
 
@@ -44,7 +44,7 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 - [**Nostr QoT Gap Analysis**](./Nostr_QoT_Gap_Analysis.md) — Feature gaps and solutions
 - [**Nostria Implementation Plan**](./QoT_Nostria_Implementation_Plan.md) — Timeline and phases for Nostria integration
 - [**Nostria Component Templates**](./QoT_Nostria_Component_Templates.md) — Angular templates and implementation details
-- [**NostrRTC-Relay Research**](./NostrRTC-Relay-Research.md) — Design exploration and feasibility analysis leading to the NostrRTC-Relay specification
+- [**NostrRTC-Relay Research**](./nostr_rtc_relay_research.md) — Design exploration and feasibility analysis leading to the NostrRTC-Relay specification
 
 ### Bitcoin Integration
 
