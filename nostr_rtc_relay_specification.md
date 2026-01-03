@@ -1,0 +1,521 @@
+# Software Specification: Nostr RTC Relay (NostrRTC-Relay)
+
+## 1. Purpose
+
+Define a **Nostr-native RTC Relay** that enables **WebRTC audio/video calls** for Nostr clients by providing:
+
+1) **Signaling over Nostr** (offer/answer/ICE/hangup) via the standard client–relay protocol.  
+2) **Strict privacy + abuse resistance** using **NIP-42 authentication** and minimal retention.  
+3) **TURN credential delivery** over Nostr (encrypted), while leaving TURN itself to a standard TURN server (e.g., coturn).
+
+This spec adheres to Nostr conventions and NIPs where applicable, while clearly labeling any RTC-specific event kinds as **experimental** until standardized.
+
+---
+
+## 2. Scope
+
+### 2.1 In scope
+
+- WebSocket relay supporting NIP-01 message flow (`REQ`, `EVENT`, `CLOSE`, `EOSE`, `OK`, `NOTICE`, `CLOSED`).
+- Relay capability metadata via NIP-11.
+- Client authentication via NIP-42 (**mandatory**).
+- Ephemeral / low-retention signaling semantics aligned with ephemeral kinds.
+- Signaling payload encryption using NIP-44.
+- Metadata-resistant signaling option using NIP-17 gift wrap.
+- Optional expiration handling using NIP-40.
+- TURN discovery + TURN credential delivery (as encrypted Nostr events).
+
+### 2.2 Out of scope
+
+- Media transport mixing/forwarding beyond TURN (no SFU in this spec).
+- Client UX specifics (ring UI, call controls, device selection).
+- Relay federation/peering.
+- Payments/monetization.
+
+---
+
+## 3. Terminology
+
+- **RTC Relay**: The Nostr relay service implementing this spec.
+- **RTC Session**: One WebRTC call attempt, identified by a `call_id`.
+- **Signaling**: SDP offer/answer + ICE candidates + hangup messages exchanged to establish a WebRTC connection.
+- **Privacy Mode**: A mode that avoids peer IP disclosure by forcing TURN-only media (`iceTransportPolicy=relay`) and optionally using NIP-17 gift-wrap signaling.
+
+---
+
+## 4. Goals and Non-goals
+
+### 4.1 Goals
+
+- **Interoperable Nostr transport**: All signaling flows via NIP-01 relay messages.
+- **Strong access control**: RTC signaling and TURN credential issuance require NIP-42 auth.
+- **Minimal retention**: Do not store RTC signaling beyond what is required to deliver it (ideally none).
+- **Security-first defaults**: encrypted signaling by default; tight rate-limits; bounded credentials.
+- **Operational simplicity**: TURN server is a standard component; RTC Relay does not require TURN code changes.
+
+### 4.2 Non-goals
+
+- “Calls must succeed everywhere” without TURN.
+- Perfect metadata hiding without NIP-17.
+
+---
+
+## 5. Standards / NIP Compliance
+
+### 5.1 MUST support
+
+- **NIP-01** base relay protocol (WebSocket) and event semantics.
+- **NIP-11** relay information document.
+- **NIP-42** authentication.
+
+### 5.2 SHOULD support
+
+- **NIP-44** encrypted payloads.
+- **NIP-17** gift wrap signaling (metadata resistance).
+- **NIP-40** expiration timestamp handling.
+
+> Note: NIP-04 DMs are deprecated/unrecommended in favor of NIP-17.
+
+---
+
+## 6. High-Level Architecture
+
+### 6.1 Components
+
+1) **RTC Relay (Nostr WebSocket service)**
+   - Implements NIP-01 message types and subscription semantics.
+   - Enforces NIP-42 authentication for RTC actions.
+   - Forwards RTC signaling events to recipients matching subscription filters and RTC policy rules.
+
+2) **TURN Service (external standard TURN server)**
+   - Standard TURN/TURNS endpoints.
+   - RTC Relay **mints and delivers** short-lived TURN credentials via Nostr events (encrypted).
+
+### 6.2 Trust boundaries
+
+- RTC Relay sees client IP addresses at the transport layer.
+- TURN operator sees network metadata (IP/bytes/timing) but not plaintext media (WebRTC SRTP is end-to-end encrypted).
+- Gift-wrapped signaling (NIP-17) reduces metadata leakage at the relay level.
+
+---
+
+## 7. Relay Interfaces
+
+### 7.1 WebSocket Interface (NIP-01)
+
+The RTC Relay MUST accept and emit messages conforming to NIP-01 over WebSocket.
+
+### 7.2 Relay Information Document (NIP-11)
+
+The relay MUST serve NIP-11 metadata.
+
+Recommended minimum fields:
+- `name`, `description`, `pubkey`, `supported_nips`
+- `software`, `version`
+- `limitation` object (sizes/rates)
+- `auth_required: true`
+
+RTC-specific extension fields (non-standard; permitted as additional JSON fields):
+
+```json
+{
+  "rtc": {
+    "default_mode": "privacy",
+    "modes": ["privacy"],
+    "signaling_kinds": [21000,21001,21002,21003,21010],
+    "turn": {
+      "uris": [
+        "turn:turn.example.com:3478?transport=udp",
+        "turns:turn.example.com:5349"
+      ],
+      "credential_delivery_kind": 21010,
+      "credential_ttl_seconds": 120
+    }
+  }
+}
+```
+
+### 7.3 Authentication (NIP-42)
+
+- Relay MUST support NIP-42 challenge/response.
+- Relay MUST require successful AUTH before allowing any RTC signaling publish or TURN credential issuance.
+
+---
+
+## 8. RTC Signaling Data Model
+
+### 8.1 RTC Session Identifier
+
+- `call_id`: 128-bit or 256-bit random identifier generated by the caller.
+- `call_id` MUST appear in tags for filterability.
+
+### 8.2 Event Kinds (Experimental)
+
+Recommended ephemeral kinds (within `20000–29999`):
+
+- `kind 21000`: `rtc.offer`
+- `kind 21001`: `rtc.answer`
+- `kind 21002`: `rtc.ice`
+- `kind 21003`: `rtc.hangup`
+- `kind 21010`: `rtc.turnCred`
+- `kind 21020`: `rtc.ping` (optional)
+- `kind 21021`: `rtc.error` (optional)
+
+### 8.3 Tags
+
+All RTC signaling events MUST include:
+
+- `p`: one or more intended recipients (`["p", "<pubkey>"]`)
+- `call`: call/session identifier (`["call", "<call_id>"]`)
+- `proto`: `["proto", "webrtc"]`
+- `v`: `["v", "1"]`
+
+Optional:
+- `relay`: `["relay", "<preferred_relay_url>"]` (hint)
+
+### 8.4 Content (Encryption)
+
+**Default and locked: Privacy Mode**
+
+- Privacy Mode MUST be the **default** and MUST be **locked** (clients cannot disable).
+- Privacy Mode requirements:
+  1) Signaling MUST be **NIP-17 gift wrapped** (metadata resistant).
+  2) TURN credentials MUST be delivered encrypted (NIP-44 inside gift wrap).
+  3) Clients MUST set WebRTC `iceTransportPolicy = "relay"` (TURN-only media path).
+
+**Inner payload schema (inside the encrypted inner event):**
+
+```json
+{
+  "call_id": "...",
+  "type": "offer|answer|ice|hangup|turnCred",
+  "sdp": "...",
+  "ice": { "candidate": "...", "sdpMid": "...", "sdpMLineIndex": 0 },
+  "ts": 1730000000
+}
+```
+
+### 8.5 Expiration (NIP-40)
+
+- RTC events SHOULD include `expiration` with a short TTL (e.g., 2–10 minutes).
+- Relay MUST reject publishing of already-expired RTC events.
+- Relay SHOULD avoid forwarding expired RTC events.
+
+---
+
+## 9. Relay Behavior for RTC Kinds
+
+### 9.1 Storage and Forwarding
+
+- RTC kinds MUST be treated as **non-persistent**:
+  - Relay MUST NOT store them durably.
+  - Relay MAY hold briefly in memory for delivery retries (default 0).
+
+### 9.2 Recipient Scoping
+
+Even if a subscription filter matches, the relay MUST enforce that:
+- Subscriber is an intended recipient (matching at least one `p` tag), OR
+- Subscriber is the authenticated sender (optional echo-to-sender policy).
+
+### 9.3 Rate Limits / Abuse Controls
+
+Relay MUST implement:
+- per-IP and per-pubkey publish limits for RTC kinds
+- max event size limits (esp. SDP)
+- max concurrent sessions per pubkey/IP
+
+Relay MUST respond with NIP-01-compatible `OK`/`NOTICE` and may `CLOSED` a subscription for policy violations.
+
+---
+
+## 10. TURN Discovery and Credential Delivery
+
+### 10.1 TURN URI Discovery
+
+Relay SHOULD advertise TURN URIs in NIP-11 extensions (see §7.2).
+
+### 10.2 Credential Delivery (Recommended)
+
+- Relay MUST require NIP-42 auth for credential requests.
+- Relay MUST deliver credentials only encrypted and gift-wrapped.
+- Credentials MUST be short-lived (recommended 60–300 seconds).
+- Credentials MUST be bound to `call_id`, recipient pubkey, and expiration.
+
+Example inner payload (`rtc.turnCred`):
+
+```json
+{
+  "call_id":"...",
+  "iceServers":[
+    {"urls":["turn:turn.example.com:3478?transport=udp"],"username":"...","credential":"..."},
+    {"urls":["turns:turn.example.com:5349"],"username":"...","credential":"..."}
+  ],
+  "expires_at": 1730000123
+}
+```
+
+### 10.3 Privacy Mode (Default and Locked)
+
+**Privacy Mode MUST be the default and MUST be locked.**
+
+In this mode:
+- Clients MUST set `iceTransportPolicy: "relay"` (TURN-only).
+- Clients MUST NOT attempt host or srflx candidates for media.
+- Signaling MUST use NIP-17 gift wrap.
+- RTC Relay MUST advertise only `"privacy"` under `rtc.modes`.
+
+---
+
+## 11. Security Requirements
+
+### 11.1 Authentication
+
+- All RTC publish operations MUST require NIP-42 auth.
+
+### 11.2 Confidentiality
+
+- Signaling MUST be gift-wrapped (NIP-17) by default and locked.
+- Inner signaling and TURN credentials MUST be encrypted (NIP-44).
+
+### 11.3 Data Minimization
+
+- RTC signaling MUST NOT be stored durably.
+- Logs MUST exclude SDP/ICE plaintext and TURN credentials.
+
+### 11.4 Integrity
+
+- Relay MUST validate event signatures and reject malformed events.
+
+---
+
+## 12. Observability & Operations
+
+### 12.1 Health & Metrics
+
+- Provide `/healthz` and optional `/metrics`.
+- Metrics SHOULD be aggregated (no payloads): active connections, auth failures, forwards, rejects.
+
+### 12.2 Configuration
+
+Config SHOULD include:
+- supported RTC kinds
+- max SDP size
+- rate limits
+- in-memory retry window
+- TURN URIs and credential TTL
+
+---
+
+## 13. Conformance Tests
+
+A conforming RTC Relay MUST pass:
+
+1) NIP-01 protocol correctness.
+2) NIP-11 document correctness.
+3) NIP-42 auth enforcement for RTC actions.
+4) Non-persistence of RTC kinds.
+5) NIP-40 expiration rejection.
+6) Recipient scoping enforcement.
+7) Privacy Mode locked: relay-only ICE policy advertised and enforced by client conformance tests.
+
+---
+
+## 14. Open Questions / Future NIPs
+
+- Standardize RTC signaling kinds/tags and gift-wrapped envelope as a community NIP.
+- Group calling (SFU) as a separate spec.
+- Formal privacy guarantees / threat model for TURN operator metadata.
+
+---
+
+# Appendix A — Protocol Appendix (Examples)
+
+> All examples below assume **Privacy Mode** (default + locked): signaling is **gift-wrapped** per NIP-17, and inner content is **NIP-44 encrypted**.
+
+## A.1 Subscription Filters (REQ)
+
+### A.1.1 Subscribe to RTC signaling addressed to me
+
+Client subscribes to the relay for ephemeral RTC kinds where `p` includes the client pubkey.
+
+```json
+["REQ", "rtc-sub", {
+  "kinds": [21000,21001,21002,21003,21010,21020,21021],
+  "#p": ["<MY_PUBKEY>"]
+}]
+```
+
+> In Privacy Mode with NIP-17, clients may instead subscribe to gift-wrapped outer kinds used by NIP-17 implementations. This spec treats the outer envelope as opaque; relay routes based on outer tags/policy.
+
+## A.2 Outer Gift-Wrapped Envelope (Conceptual)
+
+NIP-17 defines a gift-wrapped event pattern where the outer event contains encrypted inner content. Clients and relays treat the outer event as a transport wrapper; only recipients can open it.
+
+**Outer event (conceptual; fields vary by NIP-17 implementation):**
+
+```json
+{
+  "kind": <NIP17_OUTER_KIND>,
+  "pubkey": "<SENDER_PUBKEY>",
+  "created_at": 1730000000,
+  "tags": [
+    ["p","<RECIPIENT_PUBKEY>"],
+    ["call","<CALL_ID>"],
+    ["proto","webrtc"],
+    ["v","1"],
+    ["expiration","1730000300"]
+  ],
+  "content": "<NIP17_WRAPPED_CIPHERTEXT>",
+  "sig": "..."
+}
+```
+
+The relay:
+- validates signature,
+- enforces NIP-42 auth,
+- applies recipient scoping using `p` tags,
+- forwards without storing.
+
+## A.3 Inner Payloads (NIP-44 encrypted JSON)
+
+> The inner JSON object is encrypted using NIP-44 to the recipient (and optionally to the sender for local echo).
+
+### A.3.1 rtc.offer (kind 21000)
+
+**Inner JSON (encrypted):**
+
+```json
+{
+  "call_id": "8b2a1a6d2b104dc6a0f45b6cfd01c8d0",
+  "type": "offer",
+  "sdp": "v=0\r\n...",
+  "ts": 1730000000
+}
+```
+
+### A.3.2 rtc.answer (kind 21001)
+
+```json
+{
+  "call_id": "8b2a1a6d2b104dc6a0f45b6cfd01c8d0",
+  "type": "answer",
+  "sdp": "v=0\r\n...",
+  "ts": 1730000003
+}
+```
+
+### A.3.3 rtc.ice (kind 21002)
+
+```json
+{
+  "call_id": "8b2a1a6d2b104dc6a0f45b6cfd01c8d0",
+  "type": "ice",
+  "ice": {
+    "candidate": "candidate:...",
+    "sdpMid": "0",
+    "sdpMLineIndex": 0
+  },
+  "ts": 1730000004
+}
+```
+
+### A.3.4 rtc.hangup (kind 21003)
+
+```json
+{
+  "call_id": "8b2a1a6d2b104dc6a0f45b6cfd01c8d0",
+  "type": "hangup",
+  "reason": "user_hangup",
+  "ts": 1730000120
+}
+```
+
+### A.3.5 rtc.turnCred (kind 21010)
+
+```json
+{
+  "call_id": "8b2a1a6d2b104dc6a0f45b6cfd01c8d0",
+  "type": "turnCred",
+  "iceServers": [
+    {
+      "urls": ["turn:turn.example.com:3478?transport=udp"],
+      "username": "1730000180:<SENDER_OR_CALL_BINDING>",
+      "credential": "<HMAC_DERIVED_PASSWORD>"
+    },
+    {
+      "urls": ["turns:turn.example.com:5349"],
+      "username": "1730000180:<SENDER_OR_CALL_BINDING>",
+      "credential": "<HMAC_DERIVED_PASSWORD>"
+    }
+  ],
+  "expires_at": 1730000180,
+  "ts": 1730000060
+}
+```
+
+## A.4 Client Conformance Requirements (Privacy Mode Locked)
+
+A client claiming compatibility with this RTC Relay MUST:
+
+1) Use gift-wrapped signaling envelopes for all RTC events.
+2) Encrypt inner payloads and TURN credentials.
+3) Configure WebRTC ICE with TURN-only policy:
+   - `iceTransportPolicy = "relay"`
+   - include only the TURN/TURNS servers provided by the relay.
+4) Never intentionally expose host/srflx candidates to the peer.
+
+## A.5 Relay Error Semantics
+
+When rejecting an RTC event publish, relay SHOULD respond with:
+
+```json
+["OK", "<event_id>", false, "blocked: auth-required"]
+```
+
+And MAY emit `NOTICE` for diagnostics.
+
+## A.6 Suggested Codes (Relay Implementation Detail)
+
+- `blocked: auth-required`
+- `blocked: invalid-recipient`
+- `blocked: size-limit`
+- `blocked: rate-limit`
+- `blocked: expired`
+- `blocked: kind-not-allowed`
+
+---
+
+# Appendix B — NIP-11 Example (Full)
+
+```json
+{
+  "name": "Example Nostr RTC Relay",
+  "description": "RTC signaling relay for Nostr WebRTC calls (privacy-locked).",
+  "pubkey": "<ADMIN_PUBKEY>",
+  "contact": "mailto:ops@example.com",
+  "supported_nips": [1, 11, 40, 42, 44, 17],
+  "software": "nostr-rtc-relay",
+  "version": "0.1.0",
+  "auth_required": true,
+  "limitation": {
+    "max_message_length": 65536,
+    "max_subscriptions": 20,
+    "max_filters": 10,
+    "max_limit": 500
+  },
+  "rtc": {
+    "default_mode": "privacy",
+    "modes": ["privacy"],
+    "signaling_kinds": [21000, 21001, 21002, 21003, 21010, 21020, 21021],
+    "turn": {
+      "uris": [
+        "turn:turn.example.com:3478?transport=udp",
+        "turns:turn.example.com:5349"
+      ],
+      "credential_delivery_kind": 21010,
+      "credential_ttl_seconds": 120
+    }
+  }
+}
+```
+
