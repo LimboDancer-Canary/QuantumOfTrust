@@ -26,6 +26,7 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 - [**Trust Signal Boundaries**](./ADR_Trust_Signal_Boundaries.md) — What q⟨T⟩ captures vs excludes
 - [**Conceptual/Implementation Boundary**](./ADR_Conceptual_Implementation_Boundary.md) — Separation of concerns
 - [**Nostr Native Infrastructure**](./ADR_Nostr_Native_Infrastructure.md) — Native ecosystem patterns
+- [**Avatar-Contract Session Keys (ACK)**](./ADR_ACK_Session_Keys.md) — Deterministic per-contract keys with on-chain authoritative binding
 
 ### Platform
 
@@ -34,14 +35,16 @@ q⟨T⟩ decouples trust from identity. Build reputation through verified action
 ### Specifications
 
 - [**Aztec Contract Layer**](./QoT_Aztec_Contract_Layer_Specification.md) — Smart contract architecture for QoTRegistry, QoTEscrow, QoTAvatar
+- [**Avatar-Contract Session Keys (ACK)**](./ACK_Specification.md) — Deterministic session keys, Aztec bindings, Nostr mirror events, sweep-to-safety
 - [**Nostria Client Specification**](./QoT_Nostria_Client_Specification.md) — Technical architecture for Nostr client integration
 - [**ZK Relay Integration Spec**](./ZK_Relay_Integration_Spec.md) — strfry extension architecture
 - [**NostrRTC-Relay Spec**](./nostr_rtc_relay_specification.md) — Privacy-locked Nostr-native RTC relay specification (WebRTC signaling + TURN integration)
 
-### Nostr Integration
+### Aztec - Nostr Integration
 
 - [**Nostr Analysis**](./Nostr_Analysis.md) — Protocol evaluation for q⟨T⟩
 - [**Nostr QoT Gap Analysis**](./Nostr_QoT_Gap_Analysis.md) — Feature gaps and solutions
+- [**ACK Session Keys Research**](./ACK_Research_Paper.md) — Deterministic per-contract session keys for trust-escrow systems
 - [**Nostria Implementation Plan**](./QoT_Nostria_Implementation_Plan.md) — Timeline and phases for Nostria integration
 - [**Nostria Component Templates**](./QoT_Nostria_Component_Templates.md) — Angular templates and implementation details
 - [**NostrRTC-Relay Research**](./nostr_rtc_relay_research.md) — Design exploration and feasibility analysis leading to the NostrRTC-Relay specification
